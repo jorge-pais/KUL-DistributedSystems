@@ -16,7 +16,7 @@ public class BookingManager {
 		Iterable<Room> roomIterator = Arrays.asList(rooms);
 		for (Room room : roomIterator) {
 			allRooms.add(room.getRoomNumber());
-		}
+		}\
 		return allRooms;
 	}
 
