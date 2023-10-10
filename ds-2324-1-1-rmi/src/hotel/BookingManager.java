@@ -10,7 +10,7 @@ import java.util.Set;
 
 public class BookingManager implements IBookingManager {
 
-	private Room[] rooms;
+	private final Room[] rooms;
 
 	public BookingManager() {
 		this.rooms = initializeRooms();
@@ -42,18 +42,24 @@ public class BookingManager implements IBookingManager {
 		return false; // Room not found
 	}
 
-	public void addBooking(BookingDetail bookingDetail) {
-		//implement this method AND ADD EXCEPTION
-		// Check if the room is available before adding a booking
-		if (isRoomAvailable(bookingDetail.getRoomNumber(), bookingDetail.getDate())) {
-			for (Room room : rooms) {
-				if (room.getRoomNumber().equals(bookingDetail.getRoomNumber())) {
-					room.getBookings().add(bookingDetail);
-					return;
-				}
+	public boolean addBooking(BookingDetail bookingDetail) {
+
+		Room room = getRoomById(bookingDetail.getRoomNumber());
+		assert room != null;
+		room.getLock().lock();
+		try{
+			if (isRoomAvailable(bookingDetail.getRoomNumber(), bookingDetail.getDate())) {
+				room.getBookings().add(bookingDetail);
+				room.getLock().unlock();
+				return true;
 			}
+		}catch (Exception e){
+			e.printStackTrace();
+			room.getLock().unlock();
+			return false;
 		}
-		return;
+		room.getLock().unlock();
+		return false;
 	}
 
 	public Set<Integer> getAvailableRooms(LocalDate date) {
@@ -65,6 +71,14 @@ public class BookingManager implements IBookingManager {
 			}
 		}
 		return availableRooms;
+	}
+	
+	private Room getRoomById(Integer roomNumber){
+		for (Room room: this.rooms)
+			if(room.getRoomNumber().equals(roomNumber))
+				return room;
+		
+		return null;
 	}
 
 	private static Room[] initializeRooms() {

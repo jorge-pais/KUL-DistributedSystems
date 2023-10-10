@@ -13,7 +13,7 @@ public interface IBookingManager extends Remote {
 
     public boolean isRoomAvailable(Integer roomNumber, LocalDate date) throws RemoteException;
 
-    public void addBooking(BookingDetail bookingDetail) throws RemoteException;
+    public boolean addBooking(BookingDetail bookingDetail) throws RemoteException;
 
     public Set<Integer> getAvailableRooms(LocalDate date) throws RemoteException;
 }

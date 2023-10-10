@@ -17,7 +17,7 @@ import java.util.logging.Logger;
 
 public class HotelServer {
 
-    private static final String _rentalCompanyName = "HotelTuga";
+    private static final String _hotelName = "HotelTuga";
     private static final Logger logger = Logger.getLogger(HotelServer.class.getName());
 
     public HotelServer() {
@@ -35,7 +35,7 @@ public class HotelServer {
 
         try {
             System.setProperty("java.rmi.server.hostname", "localhost");
-            registry = LocateRegistry.createRegistry(8081);
+            registry = LocateRegistry.createRegistry(1099);
         } catch (RemoteException var7) {
             logger.log(Level.SEVERE, "Could not locate RMI registry.");
             System.exit(-1);
@@ -43,10 +43,10 @@ public class HotelServer {
 
         try {
             IBookingManager stub = (IBookingManager) UnicastRemoteObject.exportObject(bm, 0);
-            registry.rebind("HotelTuga", stub);
-            logger.log(Level.INFO, "<{0}> Hotel {0} is registered.", "HotelTuga");
+            registry.rebind(_hotelName, stub);
+            logger.log(Level.INFO, "<{0}> Hotel {0} is registered.", _hotelName);
         } catch (RemoteException var6) {
-            logger.log(Level.SEVERE, "<{0}> Could not get stub bound of Hotel {0}.", "HotelTuga");
+            logger.log(Level.SEVERE, "<{0}> Could not get stub bound of Hotel {0}.", _hotelName);
             var6.printStackTrace();
             System.exit(-1);
         }
