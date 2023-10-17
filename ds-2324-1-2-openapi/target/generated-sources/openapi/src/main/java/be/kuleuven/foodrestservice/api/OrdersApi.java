@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2023-10-16T15:19:46.752948262+02:00[Europe/Brussels]")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2023-10-17T11:14:11.305407941+02:00[Europe/Brussels]")
 @Validated
 @Tag(name = "orders", description = "the orders API")
 public interface OrdersApi {
@@ -44,7 +44,7 @@ public interface OrdersApi {
 
     /**
      * POST /orders : Add a new order
-     * Add a new order
+     * Add a new order2
      *
      * @param orderRequest  (required)
      * @return OK (status code 200)
@@ -53,7 +53,7 @@ public interface OrdersApi {
     @Operation(
         operationId = "addOrder",
         summary = "Add a new order",
-        description = "Add a new order",
+        description = "Add a new order2",
         tags = { "orders" },
         responses = {
             @ApiResponse(responseCode = "200", description = "OK", content = {

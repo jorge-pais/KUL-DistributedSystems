@@ -10,5 +10,6 @@ be/kuleuven/foodrestservice/Application.class
 be/kuleuven/foodrestservice/api/ApiUtil.class
 be/kuleuven/foodrestservice/model/Order.class
 be/kuleuven/foodrestservice/controller/MealsController.class
+be/kuleuven/foodrestservice/controller/OrderController.class
 be/kuleuven/foodrestservice/model/OrderRequest.class
 be/kuleuven/foodrestservice/api/MealsApi.class

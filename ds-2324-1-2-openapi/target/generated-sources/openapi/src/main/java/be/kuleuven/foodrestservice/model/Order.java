@@ -23,7 +23,7 @@ import jakarta.annotation.Generated;
  */
 
 @Schema(name = "Order", description = "A tall order")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2023-10-16T15:19:46.752948262+02:00[Europe/Brussels]")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2023-10-17T11:14:11.305407941+02:00[Europe/Brussels]")
 public class Order {
 
   private UUID id;

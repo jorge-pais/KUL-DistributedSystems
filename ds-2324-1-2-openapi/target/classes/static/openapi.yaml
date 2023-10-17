@@ -162,7 +162,7 @@ paths:
       tags:
         - orders
       summary: Add a new order
-      description: Add a new order
+      description: Add a new order2
       operationId: addOrder
       requestBody:
         content:
