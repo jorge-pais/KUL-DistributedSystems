@@ -13,6 +13,8 @@ public class MealsRepository {
     // map: id -> meal
     private static final Map<String, Meal> meals = new HashMap<>();
 
+    private static final Map<String, Order> orders = new HashMap<>();
+
     @PostConstruct
     public void initData() {
 
@@ -45,6 +47,8 @@ public class MealsRepository {
         c.setPrice(5.00);
 
         meals.put(c.getId().toString(), c);
+
+
     }
 
     public Optional<Meal> findMeal(UUID id) {
@@ -95,5 +99,20 @@ public class MealsRepository {
         meal.setPrice(mealRequest.getPrice());
 
         return meal;
+    }
+
+    public List<Order> getAllOrders(){return new LinkedList<>(orders.values());}
+
+    public Order addOrder(OrderRequest orderRequest){
+        Assert.notNull(orderRequest, "The order must not be null");
+        Order order = new Order();
+
+        order.setMeals(orderRequest.getMeals());
+        order.setAddress(orderRequest.getAddress());
+        order.setId(UUID.randomUUID());
+
+        orders.put(order.getId().toString(), order);
+
+        return order;
     }
 }
