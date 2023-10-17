@@ -1,0 +1,14 @@
+be/kuleuven/foodrestservice/api/OrdersApi.class
+be/kuleuven/foodrestservice/model/MealUpdateRequest$MealTypeEnum.class
+be/kuleuven/foodrestservice/model/MealUpdateRequest.class
+be/kuleuven/foodrestservice/exceptions/MealNotFoundAdvice.class
+be/kuleuven/foodrestservice/domain/MealsRepository.class
+be/kuleuven/foodrestservice/model/Meal$MealTypeEnum.class
+be/kuleuven/foodrestservice/exceptions/MealNotFoundException.class
+be/kuleuven/foodrestservice/model/Meal.class
+be/kuleuven/foodrestservice/Application.class
+be/kuleuven/foodrestservice/api/ApiUtil.class
+be/kuleuven/foodrestservice/model/Order.class
+be/kuleuven/foodrestservice/controller/MealsController.class
+be/kuleuven/foodrestservice/model/OrderRequest.class
+be/kuleuven/foodrestservice/api/MealsApi.class

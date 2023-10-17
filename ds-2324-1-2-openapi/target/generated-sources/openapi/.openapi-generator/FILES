@@ -1,0 +1,9 @@
+README.md
+pom.xml
+src/main/java/be/kuleuven/foodrestservice/api/ApiUtil.java
+src/main/java/be/kuleuven/foodrestservice/api/MealsApi.java
+src/main/java/be/kuleuven/foodrestservice/api/OrdersApi.java
+src/main/java/be/kuleuven/foodrestservice/model/Meal.java
+src/main/java/be/kuleuven/foodrestservice/model/MealUpdateRequest.java
+src/main/java/be/kuleuven/foodrestservice/model/Order.java
+src/main/java/be/kuleuven/foodrestservice/model/OrderRequest.java
