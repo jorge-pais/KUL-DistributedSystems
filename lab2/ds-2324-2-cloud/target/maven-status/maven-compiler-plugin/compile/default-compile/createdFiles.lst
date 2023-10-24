@@ -1,0 +1,11 @@
+be/kuleuven/distributedsystems/cloud/entities/Booking.class
+be/kuleuven/distributedsystems/cloud/entities/Train.class
+be/kuleuven/distributedsystems/cloud/controller/ViewController.class
+be/kuleuven/distributedsystems/cloud/entities/Ticket.class
+be/kuleuven/distributedsystems/cloud/Application.class
+be/kuleuven/distributedsystems/cloud/entities/Quote.class
+be/kuleuven/distributedsystems/cloud/auth/SecurityFilter.class
+be/kuleuven/distributedsystems/cloud/entities/User.class
+be/kuleuven/distributedsystems/cloud/auth/SecurityFilter$FirebaseAuthentication.class
+be/kuleuven/distributedsystems/cloud/auth/SecurityConfiguration.class
+be/kuleuven/distributedsystems/cloud/entities/Seat.class
