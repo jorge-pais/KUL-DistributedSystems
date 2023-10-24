@@ -60,9 +60,14 @@ public class Application {
         return firewall;
     }
 
-    @Bean
-    public String getApiKey() throws IOException {
-        File file = new ClassPathResource("API_KEY").getFile();
-        return new String(Files.readAllBytes(file.toPath()));
+    // Hidden API key!
+    public static String getApiKey() {
+        try {
+            File file = new ClassPathResource("API_KEY").getFile();
+            return new String(Files.readAllBytes(file.toPath()));
+        }catch (IOException e){
+            e.printStackTrace();
+            return null;
+        }
     }
 }
