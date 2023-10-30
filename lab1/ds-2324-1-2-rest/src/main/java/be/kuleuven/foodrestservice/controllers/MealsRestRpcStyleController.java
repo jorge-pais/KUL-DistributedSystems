@@ -23,7 +23,7 @@ public class MealsRestRpcStyleController {
     @Autowired
     MealsRestRpcStyleController(MealsRepository mealsRepository) { this.mealsRepository = mealsRepository; }
 
-    @GetMapping("/restrpc/meals/{id}")
+    @GetMapping("/restrpc/mealsSloterdijk{id}")
     Meal getMealById(@PathVariable String id) {
         Optional<Meal> meal = mealsRepository.findMeal(id);
 
