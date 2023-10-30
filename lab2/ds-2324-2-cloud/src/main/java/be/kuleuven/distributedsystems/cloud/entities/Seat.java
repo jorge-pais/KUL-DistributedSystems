@@ -1,7 +1,10 @@
 package be.kuleuven.distributedsystems.cloud.entities;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Seat {
     private String trainCompany;
@@ -68,4 +71,26 @@ public class Seat {
     public int hashCode() {
         return this.trainCompany.hashCode() * this.trainId.hashCode() * this.seatId.hashCode();
     }
+
+    public static Comparator<Seat> seatComparator = (Seat s1, Seat s2) -> {
+        Pattern pattern = Pattern.compile("(\\d+)(\\D+)");
+        Matcher m1 = pattern.matcher(s1.getName());
+        Matcher m2 = pattern.matcher(s2.getName());
+
+        if (m1.find() && m2.find()) {
+            int number1 = Integer.parseInt(m1.group(1));
+            int number2 = Integer.parseInt(m2.group(1));
+            String row1 = m1.group(2);
+            String row2 = m2.group(2);
+
+            int numberComparison = Integer.compare(number1, number2);
+            if (numberComparison != 0) {
+                return numberComparison;
+            } else {
+                return row1.compareTo(row2);
+            }
+        }
+
+        return 0;
+    };
 }

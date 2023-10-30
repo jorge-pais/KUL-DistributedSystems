@@ -60,11 +60,14 @@ public class Application {
         return firewall;
     }
 
-    // Hidden API key!
+    // Hidden external API key!
     public static String getApiKey() {
         try {
             File file = new ClassPathResource("API_KEY").getFile();
-            return new String(Files.readAllBytes(file.toPath()));
+
+            String key = new String(Files.readAllBytes(file.toPath()));
+            System.out.println("API_KEY = " + key);
+            return key;
         }catch (IOException e){
             e.printStackTrace();
             return null;
