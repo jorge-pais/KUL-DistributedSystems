@@ -4,6 +4,7 @@
 /home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/entities/User.java
 /home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/controller/ViewController.java
 /home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/entities/Seat.java
+/home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/controller/TrainRestController.java
 /home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/entities/Quote.java
 /home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/auth/SecurityFilter.java
 /home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/entities/Booking.java
