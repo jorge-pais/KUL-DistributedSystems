@@ -1,6 +1,11 @@
 package be.kuleuven.distributedsystems.cloud.auth;
 
 import be.kuleuven.distributedsystems.cloud.entities.User;
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.exceptions.JWTDecodeException;
+import com.auth0.jwt.interfaces.DecodedJWT;
+import com.google.cloud.firestore.Firestore;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.security.PublicKey;
 import java.util.Collection;
 
 @Component
@@ -23,7 +29,31 @@ public class SecurityFilter extends OncePerRequestFilter {
         // TODO: (level 1) decode Identity Token and assign correct email and role
         // TODO: (level 2) verify Identity Token
 
-        var user = new User("test@example.com", new String[]{});
+        String idToken = request.getHeader("Authorization");
+
+        // JANK way to remove the Bearer from the string
+        // TODO: ASK IF THIS IS IMPORTANT
+        idToken = idToken.substring(7);
+        //System.out.println("Got the following idToken: " + idToken);
+
+        String email = "noEmail...";
+        String [] roles = new String[]{};
+
+        try{
+            // TODO: PERGUNTAR SOBRE A CHAVE PUBLICA?????
+            //String kid = JWT.decode(idToken).getKeyId();
+            DecodedJWT jwt = JWT.decode(idToken);
+            email = jwt.getClaim("email").asString();
+            roles = jwt.getClaim("roles").asArray(String.class);
+
+        }catch (JWTDecodeException s){
+            System.out.println("Couldn't decode the authorization token");
+        }
+        catch (Exception e){
+            System.out.println("Something went really bad");
+        }
+
+        var user = new User(email, roles);
         SecurityContext context = SecurityContextHolder.getContext();
         context.setAuthentication(new FirebaseAuthentication(user));
 
