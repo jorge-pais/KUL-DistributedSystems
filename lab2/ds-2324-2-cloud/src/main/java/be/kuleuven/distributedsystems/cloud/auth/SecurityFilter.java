@@ -30,13 +30,14 @@ public class SecurityFilter extends OncePerRequestFilter {
         // TODO: (level 2) verify Identity Token
 
         String idToken = request.getHeader("Authorization");
+        if(idToken == null) return;
 
         // JANK way to remove the Bearer from the string
         // TODO: ASK IF THIS IS IMPORTANT
         idToken = idToken.substring(7);
         //System.out.println("Got the following idToken: " + idToken);
 
-        String email = "noEmail...";
+        String email = "no_email";
         String [] roles = new String[]{};
 
         try{

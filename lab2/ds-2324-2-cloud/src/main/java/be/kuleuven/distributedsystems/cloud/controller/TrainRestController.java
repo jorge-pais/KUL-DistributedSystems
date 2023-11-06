@@ -12,6 +12,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+import java.awt.desktop.SystemEventListener;
 import java.awt.print.Book;
 import java.lang.reflect.Array;
 import java.time.LocalDateTime;
@@ -137,39 +138,21 @@ public class TrainRestController {
     }
 
     @GetMapping(path = "/getSeat")
-    public Seat getSeat(@RequestParam String trainId, @RequestParam String trainCompany, @RequestParam String seatId) throws NullPointerException{
-
-        Collection<String> times = getTrainTimes(trainCompany, trainId);
-        Collection<Seat> seats;
-        for(String time : times) {
-            try{
-                seats = webClientBuilder
-                    .baseUrl("https://" + trainCompany)
-                    .build()
-                    .get()
-                    .uri(uriBuilder -> uriBuilder
-                            .pathSegment("trains", trainId, "seats")
-                            .queryParam("time", time)
-                            .queryParam("available", "true")
-                            .queryParam("key", API_KEY)
-                            .build())
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<CollectionModel<Seat>>() {
-                    })
-                    .block()
-                    .getContent();
-
-                for(Seat seat : seats)
-                    if (seat.getSeatId().toString().equals(seatId))
-                        return seat;
-            }catch (Exception e){
-                System.out.println("Couldn't GET from "+ trainCompany);
-            }
-        }
-
-        return null;
+    public Seat getSeat(@RequestParam String trainId, @RequestParam String trainCompany, @RequestParam String seatId){
+        return webClientBuilder
+                .baseUrl("https://" + trainCompany)
+                .build()
+                .get()
+                .uri(uriBuilder -> uriBuilder
+                        .pathSegment("trains", trainId, "seats", seatId)
+                        .queryParam("key", API_KEY)
+                        .build())
+                .retrieve()
+                .bodyToMono(Seat.class)
+                .block();
     }
 
+    // TODO: Apply PUB/SUB to this probably
     @PostMapping(path = "/confirmQuotes")
     public ResponseEntity<?> confirmQuotes(@RequestBody Collection<Quote> quotes){
         String customer = SecurityFilter.getUser().getEmail();
@@ -178,10 +161,7 @@ public class TrainRestController {
         List<Ticket> tickets = new ArrayList<>();
 
         for(Quote quote: quotes){
-            System.out.println(quote.getSeatId());
-
-            // PUT request
-            webClientBuilder
+            webClientBuilder // PUT request
                     .baseUrl("https://" + quote.getTrainCompany())
                     .build()
                     .put()
@@ -193,8 +173,7 @@ public class TrainRestController {
                             .build())
                     .retrieve().bodyToMono(String.class).block();
 
-            // GET request
-            Ticket ticket = webClientBuilder
+            Ticket ticket = webClientBuilder  // GET request
                     .baseUrl("https://" + quote.getTrainCompany())
                     .build()
                     .get()
@@ -212,29 +191,28 @@ public class TrainRestController {
         // For now just the local implementation of this
         // Check if the customer is already in the HashMap
         if(!allBookings.containsKey(customer)){
-            System.out.println("user not in database!");
             ArrayList<Booking> userBookings = new ArrayList<>();
             userBookings.add(booking);
             allBookings.put(customer, userBookings);
-        }else{
-            System.out.println("user in database already!");
+        }
+        else{
             allBookings.get(customer).add(booking);
         }
 
         return ResponseEntity.ok().build();
     }
 
+    // TODO: ASK WHY THE API NO WORK!!!
     @GetMapping(path = "/getBookings")
     public Collection<Booking> getBookings(){
         String customer = SecurityFilter.getUser().getEmail();
 
-        System.out.println("get bookings called!!!!");
+        //System.out.println("get bookings called!!!!");
 
-        for(Booking booking : allBookings.get(customer))
-            for(Ticket ticket : booking.getTickets())
-                System.out.println(ticket.getCustomer() + "---" + ticket.getTicketId());
+        List<Booking> bookings = allBookings.get(customer);
+        if(bookings == null) return null; // why assert no work
 
-        return allBookings.get(customer);
+        return bookings;
     }
 
 }
