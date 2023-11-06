@@ -4,6 +4,7 @@ import be.kuleuven.distributedsystems.cloud.Application;
 import be.kuleuven.distributedsystems.cloud.auth.SecurityFilter;
 import be.kuleuven.distributedsystems.cloud.entities.*;
 import org.bouncycastle.util.StringList;
+import org.checkerframework.checker.units.qual.A;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,23 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/*
+* TODO!!!!!
+* 1.    Replace all method signatures to include a responseEntity
+*       i guess so far the spring framework has been handling this for us
+*       but we should keep in mind that things fail and we should send the appropriate responses.
+*       Right now unreliable trains breaks the application (sort of, it still works but it's shit)
+*
+* 2.    Do the firebase thing. Apart from storing the bookings, we should probably keep some of
+*       trains and seats, so that the cart doesn't break.
+*
+* 3.    Cloud PUB/SUB. we have to modify the confirmQuotes so that it issues some job to a
+*       remote worker in the cloud that deals with these instead of the user. Then out application
+*       merely sends what is needed for it to work
+*
+* 4.    Do the ACID thing. I still don't understand it very well
+* */
+
 @RestController
 @RequestMapping("/api")
 public class TrainRestController {
@@ -29,7 +47,7 @@ public class TrainRestController {
 
     private final String API_KEY = Application.getApiKey();
 
-    // Pass this to database, URLs without https://
+    // Pass this to database perhaps, URLs without https://
     private final String [] trainCompanies = {"reliabletrains.com", "unreliabletrains.com"};
 
     @Resource(name = "webClientBuilder")
@@ -69,7 +87,7 @@ public class TrainRestController {
 
     @GetMapping(path = "/getTrain")
     public Train getTrain(@RequestParam String trainId, @RequestParam String trainCompany) throws NullPointerException{
-        return webClientBuilder
+        Train train = webClientBuilder
                 .baseUrl("https://" + trainCompany)
                 .build()
                 .get()
@@ -80,6 +98,8 @@ public class TrainRestController {
                 .retrieve()
                 .bodyToMono(Train.class)
                 .block();
+
+        return train;
     }
 
     @GetMapping(path = "/getTrainTimes")
@@ -152,7 +172,7 @@ public class TrainRestController {
                 .block();
     }
 
-    // TODO: Apply PUB/SUB to this probably
+    // TODO: Apply PUB/SUB to this
     @PostMapping(path = "/confirmQuotes")
     public ResponseEntity<?> confirmQuotes(@RequestBody Collection<Quote> quotes){
         String customer = SecurityFilter.getUser().getEmail();
@@ -202,7 +222,6 @@ public class TrainRestController {
         return ResponseEntity.ok().build();
     }
 
-    // TODO: ASK WHY THE API NO WORK!!!
     @GetMapping(path = "/getBookings")
     public Collection<Booking> getBookings(){
         String customer = SecurityFilter.getUser().getEmail();
@@ -215,4 +234,40 @@ public class TrainRestController {
         return bookings;
     }
 
+    @GetMapping(path = "/getAllBookings")
+    public Collection<Booking> getAllBookings(){
+        List<String> roles = List.of(SecurityFilter.getUser().getRoles());
+        if(!roles.contains("manager")) return null;
+
+        ArrayList<Booking> bookings = new ArrayList<>();
+        for (List<Booking> bookingList : allBookings.values())
+            bookings.addAll(bookingList);
+
+        return bookings;
+    }
+
+    // This function seems kinda inefficient
+    @GetMapping(path = "/getBestCustomers")
+    public Collection<String> getBestCustomer(){
+        List<String> roles = List.of(SecurityFilter.getUser().getRoles());
+        if(!roles.contains("manager")) return null;
+
+        ArrayList<String> users = new ArrayList<>();
+        int maxTickets = 0; int tickets;
+        for(String user : allBookings.keySet()){
+            tickets = 0;
+            for(Booking booking : allBookings.get(user))
+                tickets += booking.getTickets().size();
+
+            if (tickets > maxTickets){
+                users = new ArrayList<>();
+                users.add(user);
+                maxTickets = tickets;
+            } else if (tickets == maxTickets) {
+                users.add(user);
+            }
+        }
+
+        return users;
+    }
 }

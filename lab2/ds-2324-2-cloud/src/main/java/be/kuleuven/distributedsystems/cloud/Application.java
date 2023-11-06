@@ -1,5 +1,8 @@
 package be.kuleuven.distributedsystems.cloud;
 
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.FirestoreOptions;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
@@ -39,7 +42,7 @@ public class Application {
     }
 
     @Bean
-    public String projectId() {
+    public static String projectId() {
         return "demo-distributed-systems-kul";
     }
 
@@ -60,8 +63,8 @@ public class Application {
         return firewall;
     }
 
-    // Hidden external API key!
-    public static String getApiKey() {
+
+    public static String getApiKey() { // Hidden external API key!
         try {
             File file = new ClassPathResource("API_KEY").getFile();
 

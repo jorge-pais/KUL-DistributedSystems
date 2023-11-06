@@ -26,16 +26,13 @@ public class SecurityFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        // TODO: (level 1) decode Identity Token and assign correct email and role
         // TODO: (level 2) verify Identity Token
 
         String idToken = request.getHeader("Authorization");
         if(idToken == null) return;
 
-        // JANK way to remove the Bearer from the string
         // TODO: ASK IF THIS IS IMPORTANT
-        idToken = idToken.substring(7);
-        //System.out.println("Got the following idToken: " + idToken);
+        idToken = idToken.substring(7); // JANK way to remove the Bearer from the string
 
         String email = "no_email";
         String [] roles = new String[]{};
@@ -47,10 +44,9 @@ public class SecurityFilter extends OncePerRequestFilter {
             email = jwt.getClaim("email").asString();
             roles = jwt.getClaim("roles").asArray(String.class);
 
-        }catch (JWTDecodeException s){
+        } catch (JWTDecodeException s){
             System.out.println("Couldn't decode the authorization token");
-        }
-        catch (Exception e){
+        } catch (Exception e){
             System.out.println("Something went really bad");
         }
 
