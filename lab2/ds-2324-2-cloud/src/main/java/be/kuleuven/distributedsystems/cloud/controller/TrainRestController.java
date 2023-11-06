@@ -22,6 +22,23 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/*
+* TODO!!!!!
+* 1.    Replace all method signatures to include a responseEntity
+*       i guess so far the spring framework has been handling this for us
+*       but we should keep in mind that things fail and we should send the appropriate responses.
+*       Right now unreliable trains breaks the application (sort of, it still works but it's shit)
+*
+* 2.    Do the firebase thing. Apart from storing the bookings, we should probably keep some of
+*       trains and seats, so that the cart doesn't break.
+*
+* 3.    Cloud PUB/SUB. we have to modify the confirmQuotes so that it issues some job to a
+*       remote worker in the cloud that deals with these instead of the user. Then out application
+*       merely sends what is needed for it to work
+*
+* 4.    Do the ACID thing. I still don't understand it very well
+* */
+
 @RestController
 @RequestMapping("/api")
 public class TrainRestController {
@@ -30,7 +47,7 @@ public class TrainRestController {
 
     private final String API_KEY = Application.getApiKey();
 
-    // Pass this to database, URLs without https://
+    // Pass this to database perhaps, URLs without https://
     private final String [] trainCompanies = {"reliabletrains.com", "unreliabletrains.com"};
 
     @Resource(name = "webClientBuilder")
@@ -70,7 +87,7 @@ public class TrainRestController {
 
     @GetMapping(path = "/getTrain")
     public Train getTrain(@RequestParam String trainId, @RequestParam String trainCompany) throws NullPointerException{
-        return webClientBuilder
+        Train train = webClientBuilder
                 .baseUrl("https://" + trainCompany)
                 .build()
                 .get()
@@ -81,6 +98,8 @@ public class TrainRestController {
                 .retrieve()
                 .bodyToMono(Train.class)
                 .block();
+
+        return train;
     }
 
     @GetMapping(path = "/getTrainTimes")
