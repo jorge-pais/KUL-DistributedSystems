@@ -4,6 +4,7 @@ import be.kuleuven.distributedsystems.cloud.Application;
 import be.kuleuven.distributedsystems.cloud.auth.SecurityFilter;
 import be.kuleuven.distributedsystems.cloud.entities.*;
 import org.bouncycastle.util.StringList;
+import org.checkerframework.checker.units.qual.A;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.http.ResponseEntity;
@@ -152,7 +153,7 @@ public class TrainRestController {
                 .block();
     }
 
-    // TODO: Apply PUB/SUB to this probably
+    // TODO: Apply PUB/SUB to this
     @PostMapping(path = "/confirmQuotes")
     public ResponseEntity<?> confirmQuotes(@RequestBody Collection<Quote> quotes){
         String customer = SecurityFilter.getUser().getEmail();
@@ -202,7 +203,6 @@ public class TrainRestController {
         return ResponseEntity.ok().build();
     }
 
-    // TODO: ASK WHY THE API NO WORK!!!
     @GetMapping(path = "/getBookings")
     public Collection<Booking> getBookings(){
         String customer = SecurityFilter.getUser().getEmail();
@@ -215,4 +215,40 @@ public class TrainRestController {
         return bookings;
     }
 
+    @GetMapping(path = "/getAllBookings")
+    public Collection<Booking> getAllBookings(){
+        List<String> roles = List.of(SecurityFilter.getUser().getRoles());
+        if(!roles.contains("manager")) return null;
+
+        ArrayList<Booking> bookings = new ArrayList<>();
+        for (List<Booking> bookingList : allBookings.values())
+            bookings.addAll(bookingList);
+
+        return bookings;
+    }
+
+    // This function seems kinda inefficient
+    @GetMapping(path = "/getBestCustomers")
+    public Collection<String> getBestCustomer(){
+        List<String> roles = List.of(SecurityFilter.getUser().getRoles());
+        if(!roles.contains("manager")) return null;
+
+        ArrayList<String> users = new ArrayList<>();
+        int maxTickets = 0; int tickets;
+        for(String user : allBookings.keySet()){
+            tickets = 0;
+            for(Booking booking : allBookings.get(user))
+                tickets += booking.getTickets().size();
+
+            if (tickets > maxTickets){
+                users = new ArrayList<>();
+                users.add(user);
+                maxTickets = tickets;
+            } else if (tickets == maxTickets) {
+                users.add(user);
+            }
+        }
+
+        return users;
+    }
 }
