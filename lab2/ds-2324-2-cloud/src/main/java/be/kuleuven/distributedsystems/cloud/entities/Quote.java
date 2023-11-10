@@ -1,8 +1,9 @@
 package be.kuleuven.distributedsystems.cloud.entities;
 
+import java.io.Serializable;
 import java.util.UUID;
 
-public class Quote {
+public class Quote implements Serializable {
 
     private String trainCompany;
     private UUID trainId;
