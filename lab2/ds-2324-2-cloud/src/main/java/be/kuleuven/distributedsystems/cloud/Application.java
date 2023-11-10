@@ -1,8 +1,19 @@
 package be.kuleuven.distributedsystems.cloud;
 
+import be.kuleuven.distributedsystems.cloud.controller.ConfirmQuotesAsync;
+import be.kuleuven.distributedsystems.cloud.controller.TrainRestController;
+import com.google.api.gax.core.CredentialsProvider;
+import com.google.api.gax.core.NoCredentialsProvider;
+import com.google.api.gax.grpc.GrpcTransportChannel;
+import com.google.api.gax.rpc.FixedTransportChannelProvider;
+import com.google.api.gax.rpc.NotFoundException;
+import com.google.api.gax.rpc.TransportChannelProvider;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.FirestoreOptions;
+import com.google.cloud.pubsub.v1.*;
+import com.google.pubsub.v1.*;
+import io.grpc.ManagedChannelBuilder;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
@@ -16,6 +27,7 @@ import org.springframework.security.web.firewall.HttpFirewall;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
+import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -63,6 +75,83 @@ public class Application {
         return firewall;
     }
 
+    // Publisher and topic initialization
+    @Bean
+    public Publisher publisher() throws IOException{
+        TopicName topicName = TopicName.of(projectId(), "confirmQuotes");
+
+        TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(
+                GrpcTransportChannel.create(
+                        ManagedChannelBuilder.forTarget("localhost:8083")
+                                .usePlaintext().build()));
+
+        CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
+
+        // check if the topic already exists
+        try (TopicAdminClient topicAdminClient = TopicAdminClient.create(
+                TopicAdminSettings.newBuilder()
+                        .setTransportChannelProvider(channelProvider)
+                        .setCredentialsProvider(credentialsProvider)
+                        .build())) {
+            topicAdminClient.createTopic(topicName);
+        }catch (Exception e){
+            System.out.println("Topic already exists!");
+        }
+
+        return Publisher.newBuilder(topicName)
+                .setChannelProvider(channelProvider)
+                .setCredentialsProvider(credentialsProvider)
+                .build();
+    }
+
+    @Bean
+    public Subscriber subscriber() throws IOException{
+        TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(
+                GrpcTransportChannel.create(
+                        ManagedChannelBuilder.forTarget("localhost:8083")
+                                .usePlaintext().build()));
+
+        CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
+
+        SubscriptionAdminSettings subscriptionAdminSettings = SubscriptionAdminSettings.newBuilder()
+                .setCredentialsProvider(credentialsProvider)
+                .setTransportChannelProvider(channelProvider)
+                .build();
+
+        Subscription subscription = null;
+
+        SubscriptionName subscriptionName = SubscriptionName.of(projectId(), "confirmQuotesSubscription");
+        PushConfig pushConfig = PushConfig.newBuilder()
+                //.setPushEndpoint("localhost:8083")
+                .build();
+
+        try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
+            subscription = subscriptionAdminClient.getSubscription(subscriptionName);
+        }catch (Exception e){ // Last try that again but this time good - D.Lynch
+            try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
+                subscription = subscriptionAdminClient.createSubscription(subscriptionName, TopicName.of(projectId(), "confirmQuotes"), pushConfig, 60);
+            }
+        }
+
+        MessageReceiver receiver =
+            (PubsubMessage message, AckReplyConsumer consumer) ->{
+                test(message);
+                consumer.ack();
+            };
+
+        Subscriber subscriber = Subscriber.newBuilder(subscription.getName(), receiver)
+                .setChannelProvider(channelProvider)
+                .setCredentialsProvider(credentialsProvider)
+                .build();
+
+        subscriber.startAsync().awaitRunning();
+        return subscriber;
+    }
+
+    public static void test(PubsubMessage message){
+        System.out.println("Received message:" + message.getMessageId());
+        System.out.println("The message was: " + message.getData().toStringUtf8());
+    }
 
     public static String getApiKey() { // Hidden external API key!
         try {

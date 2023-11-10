@@ -3,6 +3,24 @@ package be.kuleuven.distributedsystems.cloud.controller;
 import be.kuleuven.distributedsystems.cloud.Application;
 import be.kuleuven.distributedsystems.cloud.auth.SecurityFilter;
 import be.kuleuven.distributedsystems.cloud.entities.*;
+import com.google.api.core.ApiFuture;
+import com.google.api.core.ApiFutureCallback;
+import com.google.api.core.ApiFutures;
+import com.google.api.gax.core.CredentialsProvider;
+import com.google.api.gax.core.NoCredentialsProvider;
+import com.google.api.gax.grpc.GrpcTransportChannel;
+import com.google.api.gax.rpc.FixedTransportChannelProvider;
+import com.google.api.gax.rpc.TransportChannelProvider;
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.firestore.FirestoreOptions;
+import com.google.cloud.pubsub.v1.*;
+import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.protobuf.ByteString;
+import com.google.pubsub.v1.*;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
+import org.apache.commons.lang3.SerializationUtils;
 import org.bouncycastle.util.StringList;
 import org.checkerframework.checker.units.qual.A;
 import org.springframework.core.ParameterizedTypeReference;
@@ -13,14 +31,14 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
-import java.awt.desktop.SystemEventListener;
-import java.awt.print.Book;
-import java.lang.reflect.Array;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.concurrent.TimeUnit;
+
 
 /*
 * TODO!!!!!
@@ -43,15 +61,26 @@ import java.util.regex.Pattern;
 @RequestMapping("/api")
 public class TrainRestController {
 
-    private Map<String, List<Booking>> allBookings = new HashMap<>();
+    public static final Map<String, List<Booking>> allBookings = new HashMap<>();
 
     private final String API_KEY = Application.getApiKey();
 
     // Pass this to database perhaps, URLs without https://
     private final String [] trainCompanies = {"reliabletrains.com", "unreliabletrains.com"};
 
+    @PostConstruct
+    private void subscribePubSubTopic(){
+
+    }
+
     @Resource(name = "webClientBuilder")
     private WebClient.Builder webClientBuilder;
+
+    @Resource(name= "publisher")
+    private Publisher publisher;
+
+    @Resource(name= "subscriber")
+    private Subscriber subscriber;
 
     @GetMapping(path = "/getTrains")
     public Collection<Train> getAllTrains() throws NullPointerException{
@@ -175,6 +204,7 @@ public class TrainRestController {
     // TODO: Apply PUB/SUB to this
     @PostMapping(path = "/confirmQuotes")
     public ResponseEntity<?> confirmQuotes(@RequestBody Collection<Quote> quotes){
+        // OLD IMPLEMENTATION
         String customer = SecurityFilter.getUser().getEmail();
         UUID bookingReference = UUID.randomUUID();
 
@@ -219,14 +249,58 @@ public class TrainRestController {
             allBookings.get(customer).add(booking);
         }
 
+        ByteString data = ByteString.copyFromUtf8("Confirm bookings was called, do something now!!!!");
+
+        PubsubMessage pubsubMessage = PubsubMessage.newBuilder()
+                .setData(data)
+                .putAttributes("user", SecurityFilter.getUser().getEmail())
+                .build();
+
+        ApiFuture<String> future = publisher.publish(pubsubMessage);
+
+        System.out.println(publisher.getTopicNameString());
+
         return ResponseEntity.ok().build();
+
+        /*try {
+            // Serialize the quote array
+            //ByteString data = ByteString.copyFrom(SerializationUtils.serialize(quotes));
+
+            ByteString data = ByteString.copyFromUtf8("Testing the confirm quotes pub/sub");
+
+            // Build the message and send
+            PubsubMessage pubsubMessage = PubsubMessage.newBuilder()
+                    .setData(data)
+                    //.putAttributes()
+                    .build();
+            ApiFuture<String> future = publisher.publish(pubsubMessage);
+
+            ApiFutures.addCallback(future, new ApiFutureCallback<String>() {
+                public void onSuccess(String messageId) {
+                    System.out.println("published with message id: " + messageId);
+                }
+                public void onFailure(Throwable t) {
+                    System.out.println("failed to publish: " + t);
+                }
+            }, MoreExecutors.directExecutor());
+
+        }catch (Exception e){
+            e.printStackTrace();
+            System.out.println("Error creating publisher");
+        }
+
+        return null;*/
+    }
+
+
+    @PostMapping("/subscription")
+    public static void handleConfirmQuotes(@RequestBody String body){
+
     }
 
     @GetMapping(path = "/getBookings")
     public Collection<Booking> getBookings(){
         String customer = SecurityFilter.getUser().getEmail();
-
-        //System.out.println("get bookings called!!!!");
 
         List<Booking> bookings = allBookings.get(customer);
         if(bookings == null) return null; // why assert no work

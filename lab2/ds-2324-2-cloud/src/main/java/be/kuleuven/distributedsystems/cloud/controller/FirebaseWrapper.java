@@ -21,7 +21,7 @@ public class FirebaseWrapper {
             firestoreOptions = FirestoreOptions.getDefaultInstance().toBuilder()
                     .setEmulatorHost(firestoreHost)
                     .setProjectId(Application.projectId())
-                    //.setCredentials(GoogleCredentials.getApplicationDefault())
+                    .setCredentials(GoogleCredentials.getApplicationDefault())
                     .build();
 
             db = firestoreOptions.getService();
