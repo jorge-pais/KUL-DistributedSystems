@@ -147,6 +147,15 @@ public class Application {
         return subscriber;
     }
 
+    @Bean
+    public Firestore db(){
+        return FirestoreOptions.getDefaultInstance().toBuilder()
+                .setProjectId(projectId())
+                .setCredentials(new FirestoreOptions.EmulatorCredentials())
+                .setEmulatorHost("localhost:8084")
+                .build().getService();
+    }
+
     public static void test(PubsubMessage message){
         System.out.println("Received message:" + message.getMessageId());
         System.out.println("The message was: " + message.getData().toStringUtf8());

@@ -14,6 +14,7 @@ import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.api.gax.rpc.TransportChannelProvider;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.FirestoreOptions;
+import com.google.cloud.firestore.WriteResult;
 import com.google.cloud.pubsub.v1.*;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import com.google.cloud.firestore.*;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
@@ -42,6 +44,8 @@ import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 
@@ -72,8 +76,12 @@ public class TrainRestController {
     private Publisher publisher;
     @Resource(name= "subscriber")
     private Subscriber subscriber;
+    @Resource(name = "db")
+    private Firestore db;
 
     public static final Map<String, List<Booking>> allBookings = new HashMap<>();
+    public static final Map<String, Seat> allSeats = new HashMap<>();
+    public static final Map<String, Train> allTrains = new HashMap<>();
 
     private final String API_KEY = Application.getApiKey();
 
@@ -115,7 +123,10 @@ public class TrainRestController {
 
     @GetMapping(path = "/getTrain")
     public Train getTrain(@RequestParam String trainId, @RequestParam String trainCompany) throws NullPointerException{
-        Train train = webClientBuilder
+        Train train = allTrains.get(trainId);
+
+        if(train == null) {
+            train = webClientBuilder
                 .baseUrl("https://" + trainCompany)
                 .build()
                 .get()
@@ -126,6 +137,8 @@ public class TrainRestController {
                 .retrieve()
                 .bodyToMono(Train.class)
                 .block();
+            allTrains.put(trainId, train);
+        }
 
         return train;
     }
@@ -150,8 +163,8 @@ public class TrainRestController {
     }
 
     @GetMapping(path = "/getAvailableSeats")
-    public Map<String, Collection<Seat>> getAvailableSeats(@RequestParam String trainCompany, @RequestParam String trainId, @RequestParam String time) throws NullPointerException{
-        Collection<Seat> seats = webClientBuilder
+    public Map<String, Collection<Seat>> getAvailableSeats(@RequestParam String trainCompany, @RequestParam String trainId, @RequestParam String time){
+        Mono<ResponseEntity<CollectionModel<Seat>>> responseEntityMono = webClientBuilder
                 .baseUrl("https://" + trainCompany)
                 .build()
                 .get()
@@ -162,9 +175,12 @@ public class TrainRestController {
                         .queryParam("key", API_KEY)
                         .build())
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<CollectionModel<Seat>>(){})
-                .block()
-                .getContent();
+                .toEntity(new ParameterizedTypeReference<CollectionModel<Seat>>(){});
+
+        ResponseEntity<CollectionModel<Seat>> response = responseEntityMono.block();
+        HttpStatusCode statusCode = response.getStatusCode();
+        if(!statusCode.is2xxSuccessful()) return null;
+        Collection<Seat> seats = response.getBody().getContent();
 
         Map<String, Collection<Seat>> map = new HashMap<>();
 
@@ -187,26 +203,33 @@ public class TrainRestController {
 
     @GetMapping(path = "/getSeat")
     public Seat getSeat(@RequestParam String trainId, @RequestParam String trainCompany, @RequestParam String seatId){
-        return webClientBuilder
-                .baseUrl("https://" + trainCompany)
-                .build()
-                .get()
-                .uri(uriBuilder -> uriBuilder
-                        .pathSegment("trains", trainId, "seats", seatId)
-                        .queryParam("key", API_KEY)
-                        .build())
-                .retrieve()
-                .bodyToMono(Seat.class)
-                .block();
+        // Should add the seat to the database if successful
+        Seat seat = allSeats.get(seatId);
+        if(seat == null) {
+            seat = webClientBuilder
+                    .baseUrl("https://" + trainCompany)
+                    .build()
+                    .get()
+                    .uri(uriBuilder -> uriBuilder
+                            .pathSegment("trains", trainId, "seats", seatId)
+                            .queryParam("key", API_KEY)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(Seat.class)
+                    .block();
+            allSeats.put(seatId, seat);
+        }
+        return seat;
     }
 
     // TODO: Apply PUB/SUB to this
     @PostMapping(path = "/confirmQuotes")
-    public ResponseEntity<?> confirmQuotes(@RequestBody Collection<Quote> quotes){
+    public ResponseEntity<?> confirmQuotes(@RequestBody Collection<Quote> quotes) throws ExecutionException, InterruptedException {
         String customer = SecurityFilter.getUser().getEmail();
         UUID bookingReference = UUID.randomUUID();
 
         List<Ticket> tickets = new ArrayList<>();
+        List<Map<String, Object>> ticketMaps = new ArrayList<>();
 
         /// THESE ARE THE REQUESTS THAT ARE MADE TO THE SERVER
         for(Quote quote: quotes){
@@ -225,67 +248,106 @@ public class TrainRestController {
                     .retrieve()
                     .toEntity(Ticket.class);
 
-            ResponseEntity<Ticket> response = responseMono.block();
-            if(response == null) continue;
+            try {
+                ResponseEntity<Ticket> response = responseMono.block();
 
-            HttpStatusCode httpStatus = response.getStatusCode();
-            if(httpStatus.is2xxSuccessful()) {
-                ticket = response.getBody();
+                HttpStatusCode httpStatus = response.getStatusCode();
+                if (httpStatus.is2xxSuccessful()) {
+                    ticket = response.getBody();
 
-                tickets.add(ticket);
+                    tickets.add(ticket);
+                    ticketMaps.add(ticket.toMap());
+                }
+            }catch (Exception e){
+                System.out.println("Couldn't put the ticket");
             }
         }
-
         // remove all tickets if the number of booked tickets is lower than number of quotes in booking request
         if(tickets.size() != quotes.size()) {
             for (Ticket ticket : tickets) { // Should probably do a while loop that checks for a successful remove
-                HttpStatusCode httpStatus = HttpStatus.NOT_FOUND; // this doesn't matter as long as it is not 2xx
+                HttpStatusCode httpStatus = HttpStatus.NOT_FOUND;
 
                 // this is in case unreliabletrains is not responding to a remove operation,
                 // in which case we definitely want to spam the remove requests.
                 while (!httpStatus.is2xxSuccessful()) {
-                    Mono<ResponseEntity<String>> responseEntity = webClientBuilder.baseUrl("https://" + ticket.getTrainCompany())
-                            .build()
-                            .delete()
-                            .uri(uriBuilder -> uriBuilder
-                                    .pathSegment("trains", ticket.getTrainId().toString(),
-                                            "seats", ticket.getSeatId().toString(), "ticket")
-                                    .queryParam("key", API_KEY)
-                                    .build())
-                            .retrieve()
-                            .toEntity(String.class); // This should return 204
+                    try {
+                        Mono<ResponseEntity<String>> responseEntity = webClientBuilder.baseUrl("https://" + ticket.getTrainCompany())
+                                .build()
+                                .delete()
+                                .uri(uriBuilder -> uriBuilder
+                                        .pathSegment("trains", ticket.getTrainId().toString(),
+                                                "seats", ticket.getSeatId().toString(), "ticket", ticket.getTicketId().toString())
+                                        .queryParam("key", API_KEY)
+                                        .build())
+                                .retrieve()
+                                .toEntity(String.class); // This should return 204
 
-                    httpStatus = responseEntity.block().getStatusCode();
+                        httpStatus = Objects.requireNonNull(responseEntity.block()).getStatusCode();
+                        System.out.println("Status was: " + httpStatus.toString());
+                    }catch (Exception e){
+                        System.out.println("Could remove the ticket: " + ticket.getSeatId());
+                        httpStatus = HttpStatus.NOT_FOUND;
+                    }
                 }
             }
             return ResponseEntity.internalServerError().build();
         }
 
-        Booking booking = new Booking(bookingReference, LocalDateTime.now(), tickets, customer);
+        DocumentReference docRef = db.collection("allbookings").document(customer)
+                .collection("bookings").document(bookingReference.toString());
 
-        // For now just the local implementation of this
-        // Check if the customer is already in the HashMap
-        if(!allBookings.containsKey(customer)){
-            ArrayList<Booking> userBookings = new ArrayList<>();
-            userBookings.add(booking);
-            allBookings.put(customer, userBookings);
+        // DocumentReference docRef = db.collection("allbookings").document(customer);
+        // Add document data  with id "allbookings" using a hashmap
+        Map<String, Object> bookingData = new HashMap<>();
+        bookingData.put("id", bookingReference.toString());
+        bookingData.put("time", LocalDateTime.now().toString());
+        bookingData.put("tickets", ticketMaps);
+        bookingData.put("customer", customer);
+
+        ApiFuture<WriteResult> future = docRef.set(bookingData);
+        try {
+            future.get(); // Wait until operation is completed.
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException(e);
         }
-        else{
-            allBookings.get(customer).add(booking);
+
+        DocumentReference customerDocRef = db.collection("allbookings").document(customer);
+
+        // Check if the document exists
+        ApiFuture<DocumentSnapshot> customerFuture = customerDocRef.get();
+        DocumentSnapshot customerDocument = customerFuture.get();
+
+        if (customerDocument.exists()) {
+            // If the document exists, get the current totalTickets value
+            int totalTickets = customerDocument.getLong("totalTickets").intValue();
+
+            // Increment the totalTickets value by the number of tickets bought in the current transaction
+            totalTickets += tickets.size();
+
+            // Update the document with the new totalTickets value
+            customerDocRef.update("totalTickets", totalTickets);
+        } else {
+            // If the document doesn't exist, create a new one with totalTickets set to the number of tickets bought
+            customerDocRef.set(Map.of("totalTickets", tickets.size()));
         }
 
-        ByteString data = ByteString.copyFromUtf8("Confirm bookings was called, do something now!!!!");
 
-        PubsubMessage pubsubMessage = PubsubMessage.newBuilder()
+
+        return ResponseEntity.ok().build();
+
+
+
+        // PUBSUB TEST CODE HERE
+        /*PubsubMessage pubsubMessage = PubsubMessage.newBuilder()
                 .setData(data)
                 .putAttributes("user", SecurityFilter.getUser().getEmail())
                 .build();
 
         ApiFuture<String> future = publisher.publish(pubsubMessage);
 
-        System.out.println(publisher.getTopicNameString());
-
-        return ResponseEntity.ok().build();
+        System.out.println(publisher.getTopicNameString());*/
     }
 
     @PostMapping("/subscription")
@@ -296,47 +358,97 @@ public class TrainRestController {
     @GetMapping(path = "/getBookings")
     public Collection<Booking> getBookings(){
         String customer = SecurityFilter.getUser().getEmail();
+        ArrayList<Booking> bookings = new ArrayList<>();
 
-        List<Booking> bookings = allBookings.get(customer);
-        if(bookings == null) return null; // why assert no work
+        // Create a query against the "bookings" subcollection.
+        ApiFuture<QuerySnapshot> future = db.collection("allbookings")
+                .document(customer)
+                .collection("bookings")
+                .get();
 
-        return bookings;
+        try {
+            List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+
+            for (DocumentSnapshot document : documents) {
+                Booking booking = document.toObject(Booking.class);
+                bookings.add(document.toObject(Booking.class));
+            }
+
+            return bookings;
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @GetMapping(path = "/getAllBookings")
     public Collection<Booking> getAllBookings(){
         List<String> roles = List.of(SecurityFilter.getUser().getRoles());
-        if(!roles.contains("manager")) return null;
 
-        ArrayList<Booking> bookings = new ArrayList<>();
-        for (List<Booking> bookingList : allBookings.values())
-            bookings.addAll(bookingList);
+        // Check if the user has the "manager" role
+        if (!roles.contains("manager")) return null;
 
-        return bookings;
+        // Create a query against the "allbookings" collection
+        ApiFuture<QuerySnapshot> future = db.collection("allbookings").get();
+
+        try {
+            List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+            List<Booking> bookings = new ArrayList<>();
+
+            // Process each document in parallel
+            for (DocumentSnapshot document : documents) {
+                CollectionReference bookingsCollection = document.getReference().collection("bookings");
+                ApiFuture<QuerySnapshot> bookingsFuture = bookingsCollection.get();
+
+                try {
+                    List<QueryDocumentSnapshot> bookingDocuments = bookingsFuture.get().getDocuments();
+                    for (DocumentSnapshot bookingDocument : bookingDocuments) {
+                        bookings.add(bookingDocument.toObject(Booking.class));
+                    }
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new CompletionException(e);
+                }
+            }
+
+            return bookings;
+        } catch (InterruptedException | ExecutionException e) {
+            throw new CompletionException(e);
+        }
     }
 
     // This function seems kinda inefficient
     @GetMapping(path = "/getBestCustomers")
     public Collection<String> getBestCustomer(){
         List<String> roles = List.of(SecurityFilter.getUser().getRoles());
-        if(!roles.contains("manager")) return null;
+        if (!roles.contains("manager")) return null;
 
-        ArrayList<String> users = new ArrayList<>();
-        int maxTickets = 0; int tickets;
-        for(String user : allBookings.keySet()){
-            tickets = 0;
-            for(Booking booking : allBookings.get(user))
-                tickets += booking.getTickets().size();
+        ApiFuture<QuerySnapshot> future = db.collection("allbookings").get();
+        List<QueryDocumentSnapshot> documents;
+        ArrayList<String> bestCustomers = new ArrayList<>();
+        long maxTickets = 0;
 
-            if (tickets > maxTickets){
-                users = new ArrayList<>();
-                users.add(user);
-                maxTickets = tickets;
-            } else if (tickets == maxTickets) {
-                users.add(user);
+        try {
+            documents = future.get().getDocuments();
+            Map<String, Long> ticketCounts = new HashMap<>();
+
+            for (DocumentSnapshot document : documents) {
+                String customer = document.getId();
+                long tickets = (Long) document.get("totalTickets");
+                ticketCounts.put(customer, tickets);
             }
-        }
 
-        return users;
+            for (Map.Entry<String, Long> entry : ticketCounts.entrySet()) {
+                if (entry.getValue() > maxTickets) {
+                    maxTickets = entry.getValue();
+                    bestCustomers.clear();
+                    bestCustomers.add(entry.getKey());
+                } else if (entry.getValue() == maxTickets) {
+                    bestCustomers.add(entry.getKey());
+                }
+            }
+
+            return bestCustomers;
+        } catch (InterruptedException | ExecutionException e) {
+            throw new CompletionException(e);
+        }
     }
 }
