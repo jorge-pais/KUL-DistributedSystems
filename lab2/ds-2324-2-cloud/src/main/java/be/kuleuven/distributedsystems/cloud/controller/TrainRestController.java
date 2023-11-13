@@ -145,8 +145,8 @@ public class TrainRestController {
 
     @GetMapping(path = "/getTrainTimes")
     public Collection<String> getTrainTimes(@RequestParam String trainCompany, @RequestParam String trainId) throws NullPointerException{
-
-        return webClientBuilder
+        Mono<ResponseEntity<CollectionModel<String>>> responseEntityMono =
+                webClientBuilder
                 .baseUrl("https://" + trainCompany)
                 .build()
                 .get()
@@ -157,9 +157,17 @@ public class TrainRestController {
                         .queryParam("key", API_KEY)
                         .build())
                 .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<CollectionModel<String>>(){})
-                .block()
-                .getContent();
+                .toEntity(new ParameterizedTypeReference<CollectionModel<String>>(){});
+
+        try{
+            ResponseEntity<CollectionModel<String>> response = responseEntityMono.block();
+            HttpStatusCode statusCode = response.getStatusCode();
+            if(statusCode.is2xxSuccessful())
+                return response.getBody().getContent();
+            return null;
+        }catch (Exception e){
+            return null;
+        }
     }
 
     @GetMapping(path = "/getAvailableSeats")
