@@ -75,7 +75,6 @@ public class Application {
         return firewall;
     }
 
-    // Publisher and topic initialization
     @Bean
     public Publisher publisher() throws IOException{
         TopicName topicName = TopicName.of(projectId(), "confirmQuotes");

@@ -3,6 +3,7 @@ package be.kuleuven.distributedsystems.cloud.controller;
 import be.kuleuven.distributedsystems.cloud.Application;
 import be.kuleuven.distributedsystems.cloud.auth.SecurityFilter;
 import be.kuleuven.distributedsystems.cloud.entities.*;
+import com.google.api.Http;
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
@@ -25,9 +26,13 @@ import org.bouncycastle.util.StringList;
 import org.checkerframework.checker.units.qual.A;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.hateoas.CollectionModel;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
@@ -61,26 +66,19 @@ import java.util.concurrent.TimeUnit;
 @RequestMapping("/api")
 public class TrainRestController {
 
+    @Resource(name = "webClientBuilder")
+    private WebClient.Builder webClientBuilder;
+    @Resource(name= "publisher")
+    private Publisher publisher;
+    @Resource(name= "subscriber")
+    private Subscriber subscriber;
+
     public static final Map<String, List<Booking>> allBookings = new HashMap<>();
 
     private final String API_KEY = Application.getApiKey();
 
     // Pass this to database perhaps, URLs without https://
     private final String [] trainCompanies = {"reliabletrains.com", "unreliabletrains.com"};
-
-    @PostConstruct
-    private void subscribePubSubTopic(){
-
-    }
-
-    @Resource(name = "webClientBuilder")
-    private WebClient.Builder webClientBuilder;
-
-    @Resource(name= "publisher")
-    private Publisher publisher;
-
-    @Resource(name= "subscriber")
-    private Subscriber subscriber;
 
     @GetMapping(path = "/getTrains")
     public Collection<Train> getAllTrains() throws NullPointerException{
@@ -100,6 +98,7 @@ public class TrainRestController {
 
     // AUX function for getAllTrains()
     private Collection<Train> getAllTrainsFrom(String trainCompany) throws NullPointerException{
+
         return webClientBuilder
                 .baseUrl("https://" + trainCompany)
                 .build()
@@ -204,14 +203,16 @@ public class TrainRestController {
     // TODO: Apply PUB/SUB to this
     @PostMapping(path = "/confirmQuotes")
     public ResponseEntity<?> confirmQuotes(@RequestBody Collection<Quote> quotes){
-        // OLD IMPLEMENTATION
         String customer = SecurityFilter.getUser().getEmail();
         UUID bookingReference = UUID.randomUUID();
 
         List<Ticket> tickets = new ArrayList<>();
 
+        /// THESE ARE THE REQUESTS THAT ARE MADE TO THE SERVER
         for(Quote quote: quotes){
-            webClientBuilder // PUT request
+            Ticket ticket = null;
+
+            Mono<ResponseEntity<Ticket>> responseMono = webClientBuilder // PUT request
                     .baseUrl("https://" + quote.getTrainCompany())
                     .build()
                     .put()
@@ -221,19 +222,43 @@ public class TrainRestController {
                             .queryParam("customer", customer)
                             .queryParam("bookingReference", bookingReference.toString())
                             .build())
-                    .retrieve().bodyToMono(String.class).block();
+                    .retrieve()
+                    .toEntity(Ticket.class);
 
-            Ticket ticket = webClientBuilder  // GET request
-                    .baseUrl("https://" + quote.getTrainCompany())
-                    .build()
-                    .get()
-                    .uri(uriBuilder -> uriBuilder
-                            .pathSegment("trains", quote.getTrainId().toString(), "seats", quote.getSeatId().toString(), "ticket")
-                            .queryParam("key", API_KEY)
-                            .build())
-                    .retrieve().bodyToMono(Ticket.class).block();
+            ResponseEntity<Ticket> response = responseMono.block();
+            if(response == null) continue;
 
-            tickets.add(ticket);
+            HttpStatusCode httpStatus = response.getStatusCode();
+            if(httpStatus.is2xxSuccessful()) {
+                ticket = response.getBody();
+
+                tickets.add(ticket);
+            }
+        }
+
+        // remove all tickets if the number of booked tickets is lower than number of quotes in booking request
+        if(tickets.size() != quotes.size()) {
+            for (Ticket ticket : tickets) { // Should probably do a while loop that checks for a successful remove
+                HttpStatusCode httpStatus = HttpStatus.NOT_FOUND; // this doesn't matter as long as it is not 2xx
+
+                // this is in case unreliabletrains is not responding to a remove operation,
+                // in which case we definitely want to spam the remove requests.
+                while (!httpStatus.is2xxSuccessful()) {
+                    Mono<ResponseEntity<String>> responseEntity = webClientBuilder.baseUrl("https://" + ticket.getTrainCompany())
+                            .build()
+                            .delete()
+                            .uri(uriBuilder -> uriBuilder
+                                    .pathSegment("trains", ticket.getTrainId().toString(),
+                                            "seats", ticket.getSeatId().toString(), "ticket")
+                                    .queryParam("key", API_KEY)
+                                    .build())
+                            .retrieve()
+                            .toEntity(String.class); // This should return 204
+
+                    httpStatus = responseEntity.block().getStatusCode();
+                }
+            }
+            return ResponseEntity.internalServerError().build();
         }
 
         Booking booking = new Booking(bookingReference, LocalDateTime.now(), tickets, customer);
@@ -261,37 +286,7 @@ public class TrainRestController {
         System.out.println(publisher.getTopicNameString());
 
         return ResponseEntity.ok().build();
-
-        /*try {
-            // Serialize the quote array
-            //ByteString data = ByteString.copyFrom(SerializationUtils.serialize(quotes));
-
-            ByteString data = ByteString.copyFromUtf8("Testing the confirm quotes pub/sub");
-
-            // Build the message and send
-            PubsubMessage pubsubMessage = PubsubMessage.newBuilder()
-                    .setData(data)
-                    //.putAttributes()
-                    .build();
-            ApiFuture<String> future = publisher.publish(pubsubMessage);
-
-            ApiFutures.addCallback(future, new ApiFutureCallback<String>() {
-                public void onSuccess(String messageId) {
-                    System.out.println("published with message id: " + messageId);
-                }
-                public void onFailure(Throwable t) {
-                    System.out.println("failed to publish: " + t);
-                }
-            }, MoreExecutors.directExecutor());
-
-        }catch (Exception e){
-            e.printStackTrace();
-            System.out.println("Error creating publisher");
-        }
-
-        return null;*/
     }
-
 
     @PostMapping("/subscription")
     public static void handleConfirmQuotes(@RequestBody String body){
