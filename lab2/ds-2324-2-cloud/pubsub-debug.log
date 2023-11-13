@@ -1,79 +1,29 @@
 This is the Google Pub/Sub fake.
 Implementation may be incomplete or differ from the real system.
-Nov 10, 2023 6:46:33 PM com.google.cloud.pubsub.testing.v1.Main main
+Nov 13, 2023 5:57:23 PM com.google.cloud.pubsub.testing.v1.Main main
 INFO: IAM integration is disabled. IAM policy methods and ACL checks are not supported
 SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
 SLF4J: Defaulting to no-operation (NOP) logger implementation
 SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
-Nov 10, 2023 6:46:34 PM com.google.cloud.pubsub.testing.v1.Main main
+Nov 13, 2023 5:57:24 PM com.google.cloud.pubsub.testing.v1.Main main
 INFO: Server started, listening on 8083
-Nov 10, 2023 6:47:35 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Nov 13, 2023 5:57:57 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Nov 10, 2023 6:47:36 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Nov 13, 2023 5:57:58 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Nov 10, 2023 6:48:36 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Nov 13, 2023 6:15:38 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Nov 10, 2023 6:50:41 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Nov 13, 2023 6:15:38 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Nov 10, 2023 6:50:41 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Nov 13, 2023 6:16:17 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Nov 10, 2023 6:55:33 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Nov 13, 2023 6:16:17 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Nov 10, 2023 6:55:33 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Nov 13, 2023 6:18:59 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Nov 10, 2023 6:55:33 PM io.netty.util.ResourceLeakDetector reportTracedLeak
-SEVERE: LEAK: ByteBuf.release() was not called before it's garbage-collected. See https://netty.io/wiki/reference-counted-objects.html for more information.
-Recent access records: 
-Created at:
-	io.netty.buffer.UnpooledByteBufAllocator.newDirectBuffer(UnpooledByteBufAllocator.java:96)
-	io.netty.buffer.AbstractByteBufAllocator.directBuffer(AbstractByteBufAllocator.java:188)
-	io.netty.buffer.AbstractByteBufAllocator.directBuffer(AbstractByteBufAllocator.java:174)
-	io.netty.buffer.Unpooled.directBuffer(Unpooled.java:110)
-	io.gapi.emulators.netty.HttpVersionRoutingHandler.<init>(HttpVersionRoutingHandler.java:57)
-	io.gapi.emulators.grpc.GrpcServer$1.initChannel(GrpcServer.java:194)
-	io.netty.channel.ChannelInitializer.initChannel(ChannelInitializer.java:129)
-	io.netty.channel.ChannelInitializer.handlerAdded(ChannelInitializer.java:112)
-	io.netty.channel.AbstractChannelHandlerContext.callHandlerAdded(AbstractChannelHandlerContext.java:938)
-	io.netty.channel.DefaultChannelPipeline.callHandlerAdded0(DefaultChannelPipeline.java:609)
-	io.netty.channel.DefaultChannelPipeline.access$100(DefaultChannelPipeline.java:46)
-	io.netty.channel.DefaultChannelPipeline$PendingHandlerAddedTask.execute(DefaultChannelPipeline.java:1463)
-	io.netty.channel.DefaultChannelPipeline.callHandlerAddedForAllHandlers(DefaultChannelPipeline.java:1115)
-	io.netty.channel.DefaultChannelPipeline.invokeHandlerAddedIfNeeded(DefaultChannelPipeline.java:650)
-	io.netty.channel.AbstractChannel$AbstractUnsafe.register0(AbstractChannel.java:514)
-	io.netty.channel.AbstractChannel$AbstractUnsafe.access$200(AbstractChannel.java:429)
-	io.netty.channel.AbstractChannel$AbstractUnsafe$1.run(AbstractChannel.java:486)
-	io.netty.util.concurrent.AbstractEventExecutor.safeExecute(AbstractEventExecutor.java:164)
-	io.netty.util.concurrent.SingleThreadEventExecutor.runAllTasks(SingleThreadEventExecutor.java:469)
-	io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:503)
-	io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:986)
-	io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
-	io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
-	java.base/java.lang.Thread.run(Thread.java:840)
-Nov 10, 2023 8:53:44 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Nov 13, 2023 6:18:59 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Nov 10, 2023 8:53:45 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Nov 13, 2023 6:21:57 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Nov 10, 2023 11:06:40 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
-INFO: Detected HTTP/2 connection.
-Nov 10, 2023 11:07:30 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
-INFO: Detected HTTP/2 connection.
-Nov 10, 2023 11:07:31 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
-INFO: Detected HTTP/2 connection.
-Exception in thread "pool-1-thread-1" java.lang.NullPointerException: Cannot invoke "Object.hashCode()" because "key" is null
-	at java.base/java.util.concurrent.ConcurrentHashMap.get(ConcurrentHashMap.java:936)
-	at com.google.cloud.pubsub.testing.v1.FakePubsubServer$StreamingPullPusher.run(FakePubsubServer.java:1543)
-	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1136)
-	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
-	at java.base/java.lang.Thread.run(Thread.java:840)
-Nov 10, 2023 11:08:39 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
-INFO: Detected HTTP/2 connection.
-Nov 10, 2023 11:08:39 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
-INFO: Detected HTTP/2 connection.
-Nov 10, 2023 11:09:02 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
-INFO: Detected HTTP/2 connection.
-Nov 10, 2023 11:09:03 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
-INFO: Detected HTTP/2 connection.
-Nov 10, 2023 11:10:25 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
-INFO: Detected HTTP/2 connection.
-Nov 10, 2023 11:10:25 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Nov 13, 2023 6:21:58 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.

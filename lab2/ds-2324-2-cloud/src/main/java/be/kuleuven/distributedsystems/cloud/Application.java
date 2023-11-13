@@ -75,7 +75,6 @@ public class Application {
         return firewall;
     }
 
-    // Publisher and topic initialization
     @Bean
     public Publisher publisher() throws IOException{
         TopicName topicName = TopicName.of(projectId(), "confirmQuotes");
@@ -146,6 +145,15 @@ public class Application {
 
         subscriber.startAsync().awaitRunning();
         return subscriber;
+    }
+
+    @Bean
+    public Firestore db(){
+        return FirestoreOptions.getDefaultInstance().toBuilder()
+                .setProjectId(projectId())
+                .setCredentials(new FirestoreOptions.EmulatorCredentials())
+                .setEmulatorHost("localhost:8084")
+                .build().getService();
     }
 
     public static void test(PubsubMessage message){

@@ -1,5 +1,7 @@
 package be.kuleuven.distributedsystems.cloud.entities;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class Ticket {
@@ -44,6 +46,29 @@ public class Ticket {
 
     public String getBookingReference() {
         return this.bookingReference;
+    }
+
+    public Map<String, Object> toMap() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("trainCompany", this.trainCompany);
+        map.put("trainId", this.trainId.toString());
+        map.put("seatId", this.seatId.toString());
+        map.put("ticketId", this.ticketId.toString());
+        map.put("customer", this.customer);
+        map.put("bookingReference", this.bookingReference);
+        return map;
+    }
+
+    public void setseatId(String seatId) {
+        this.seatId = UUID.fromString(seatId);
+    }
+
+    public void setTicketId(String ticketId) {
+        this.ticketId = UUID.fromString(ticketId);
+    }
+
+    public void setTrainId(String trainId) {
+        this.trainId = UUID.fromString(trainId);
     }
 
     @Override
