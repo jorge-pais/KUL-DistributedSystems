@@ -58,9 +58,6 @@ public class Application {
         return "demo-distributed-systems-kul";
     }
 
-    /*
-     * You can use this builder to create a Spring WebClient instance which can be used to make REST-calls.
-     */
     @Bean
     WebClient.Builder webClientBuilder(HypermediaWebClientConfigurer configurer) {
         return configurer.registerHypermediaTypes(WebClient.builder()
@@ -81,7 +78,7 @@ public class Application {
 
         TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(
                 GrpcTransportChannel.create(
-                        ManagedChannelBuilder.forTarget("localhost:8083/subscription")
+                        ManagedChannelBuilder.forTarget("localhost:8083")
                                 .usePlaintext().build()));
 
         CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
@@ -108,7 +105,7 @@ public class Application {
     public void subscriber() throws IOException{
         TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(
                 GrpcTransportChannel.create(
-                        ManagedChannelBuilder.forTarget("localhost:8083/subscription")
+                        ManagedChannelBuilder.forTarget("localhost:8083")
                                 .usePlaintext().build()));
 
         CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
@@ -121,17 +118,27 @@ public class Application {
         Subscription subscription = null;
 
         SubscriptionName subscriptionName = SubscriptionName.of(projectId(), "confirmQuotesSubscription");
+
+        // Make the pubsub metadata part of the HTTP header,
+        // instead of sending it in the body
+        //PushConfig.NoWrapper noWrapper = PushConfig.NoWrapper.newBuilder().setWriteMetadata(true).build();
+
         PushConfig pushConfig = PushConfig.newBuilder()
-                .setPushEndpoint("localhost:8083/subscription")
+                .setPushEndpoint("http://localhost:8080/push/confirmQuoteSub")
+                //.setNoWrapper(noWrapper)
                 .build();
 
         try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
             subscription = subscriptionAdminClient.getSubscription(subscriptionName);
-        }catch (Exception e){ // Last try that again but this time good - D.Lynch
+            subscriptionAdminClient.deleteSubscription(subscriptionName);
+            throw new Exception();
+        }catch (Exception e){ // Let's try that again but this time good - D.Lynch
             try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
                 subscription = subscriptionAdminClient.createSubscription(subscriptionName, TopicName.of(projectId(), "confirmQuotes"), pushConfig, 60);
+                System.out.println("Subscription created!");
             }
         }
+
     }
 
     @Bean
@@ -148,7 +155,7 @@ public class Application {
             File file = new ClassPathResource("API_KEY").getFile();
 
             String key = new String(Files.readAllBytes(file.toPath()));
-            System.out.println("API_KEY = " + key);
+            //System.out.println("API_KEY = " + key);
             return key;
         }catch (IOException e){
             e.printStackTrace();

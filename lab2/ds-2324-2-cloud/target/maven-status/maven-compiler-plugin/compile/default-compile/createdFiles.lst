@@ -1,2 +1,5 @@
+be/kuleuven/distributedsystems/cloud/entities/PubsubContainer$PubsubMessageWrapper.class
 be/kuleuven/distributedsystems/cloud/controller/ConfirmQuotesAsync.class
 be/kuleuven/distributedsystems/cloud/controller/FirebaseWrapper.class
+be/kuleuven/distributedsystems/cloud/entities/PubsubContainer.class
+be/kuleuven/distributedsystems/cloud/controller/ConfirmQuotesAsync$1.class

@@ -3,6 +3,7 @@ package be.kuleuven.distributedsystems.cloud.controller;
 import be.kuleuven.distributedsystems.cloud.Application;
 import be.kuleuven.distributedsystems.cloud.auth.SecurityFilter;
 import be.kuleuven.distributedsystems.cloud.entities.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.*;
 import com.google.cloud.pubsub.v1.Publisher;
@@ -306,139 +307,27 @@ public class TrainRestController {
         }
     }
 
-    // TODO: Apply PUB/SUB to this
     @PostMapping(path = "/confirmQuotes")
     public ResponseEntity<?> confirmQuotes(@RequestBody Collection<Quote> quotes) throws ExecutionException, InterruptedException {
         String customer = SecurityFilter.getUser().getEmail();
-        UUID bookingReference = UUID.randomUUID();
 
-        List<Ticket> tickets = new ArrayList<>();
-        List<Map<String, Object>> ticketMaps = new ArrayList<>();
+        ObjectMapper objectMapper = new ObjectMapper();
+        try{
+            // Serialize quote array as json and send it to publisher
+            byte[] quoteJson = objectMapper.writeValueAsBytes(quotes);
 
-        /// THESE ARE THE REQUESTS THAT ARE MADE TO THE SERVER
-        for(Quote quote: quotes){
-            Ticket ticket = null;
+            PubsubMessage message = PubsubMessage.newBuilder()
+                    .setData(ByteString.copyFrom(quoteJson))
+                    .putAttributes("user", customer)
+                    .build();
 
-            Mono<ResponseEntity<Ticket>> responseMono = webClientBuilder // PUT request
-                    .baseUrl("https://" + quote.getTrainCompany())
-                    .build()
-                    .put()
-                    .uri(uriBuilder -> uriBuilder
-                            .pathSegment("trains", quote.getTrainId().toString(), "seats", quote.getSeatId().toString(), "ticket")
-                            .queryParam("key", API_KEY)
-                            .queryParam("customer", customer)
-                            .queryParam("bookingReference", bookingReference.toString())
-                            .build())
-                    .retrieve()
-                    .toEntity(Ticket.class);
+            publisher.publish(message);
 
-            try {
-                ResponseEntity<Ticket> response = responseMono.block();
-
-                HttpStatusCode httpStatus = response.getStatusCode();
-                if (httpStatus.is2xxSuccessful()) {
-                    ticket = response.getBody();
-
-                    tickets.add(ticket);
-                    ticketMaps.add(ticket.toMap());
-                }
-                else{
-                    throw new Exception();
-                }
-
-            }
-            catch (Exception e){
-                System.out.println("Couldn't put the ticket");
-                // Now attempt to remove all tickets from
-                for (Ticket ticket_ : tickets) { // Should probably do a while loop that checks for a successful remove
-                    HttpStatusCode httpStatus = HttpStatus.NOT_FOUND;
-
-                    // this is in case unreliabletrains is not responding to a remove operation,
-                    // in which case we definitely want to spam the remove requests.
-                    while (!httpStatus.is2xxSuccessful()) {
-                        try {
-                            Mono<ResponseEntity<String>> responseEntity = webClientBuilder.baseUrl("https://" + ticket_.getTrainCompany())
-                                    .build()
-                                    .delete()
-                                    .uri(uriBuilder -> uriBuilder
-                                            .pathSegment("trains", ticket_.getTrainId().toString(),
-                                                    "seats", ticket_.getSeatId().toString(), "ticket", ticket_.getTicketId().toString())
-                                            .queryParam("key", API_KEY)
-                                            .build())
-                                    .retrieve()
-                                    .toEntity(String.class); // This should return 204
-
-                            httpStatus = Objects.requireNonNull(responseEntity.block()).getStatusCode();
-                            System.out.println("Status was: " + httpStatus.toString());
-                        }catch (Exception ee){
-                            System.out.println("Could remove the ticket: " + ticket.getSeatId());
-                            httpStatus = HttpStatus.NOT_FOUND;
-                        }
-                    }
-                }
-                return ResponseEntity.internalServerError().build();
-            }
+            return ResponseEntity.ok().build();
+        }catch (Exception e){
+            return ResponseEntity.internalServerError().build();
         }
-
-        DocumentReference docRef = db.collection("allbookings").document(customer)
-                .collection("bookings").document(bookingReference.toString());
-
-        // DocumentReference docRef = db.collection("allbookings").document(customer);
-        // Add document data  with id "allbookings" using a hashmap
-        Map<String, Object> bookingData = new HashMap<>();
-        bookingData.put("id", bookingReference.toString());
-        bookingData.put("time", LocalDateTime.now().toString());
-        bookingData.put("tickets", ticketMaps);
-        bookingData.put("customer", customer);
-
-        ApiFuture<WriteResult> future = docRef.set(bookingData);
-        try {
-            future.get(); // Wait until operation is completed.
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        DocumentReference customerDocRef = db.collection("allbookings").document(customer);
-
-        // Check if the document exists
-        ApiFuture<DocumentSnapshot> customerFuture = customerDocRef.get();
-        DocumentSnapshot customerDocument = customerFuture.get();
-
-        if (customerDocument.exists()) {
-            // If the document exists, get the current totalTickets value
-            int totalTickets = customerDocument.getLong("totalTickets").intValue();
-
-            // Increment the totalTickets value by the number of tickets bought in the current transaction
-            totalTickets += tickets.size();
-
-            // Update the document with the new totalTickets value
-            customerDocRef.update("totalTickets", totalTickets);
-        } else {
-            // If the document doesn't exist, create a new one with totalTickets set to the number of tickets bought
-            customerDocRef.set(Map.of("totalTickets", tickets.size()));
-        }
-
-        PubsubMessage message = PubsubMessage.newBuilder()
-                .setData(ByteString.copyFromUtf8("mensagem de teste crl"))
-                .putAttributes("user", SecurityFilter.getUser().getEmail())
-                .build();
-
-        publisher.publish(message);
-
-        return ResponseEntity.ok().build();
-
-        // PUBSUB TEST CODE HERE
-        /*PubsubMessage pubsubMessage = PubsubMessage.newBuilder()
-                .setData(data)
-                .putAttributes("user", SecurityFilter.getUser().getEmail())
-                .build();
-
-        ApiFuture<String> future = publisher.publish(pubsubMessage);
-
-        System.out.println(publisher.getTopicNameString());*/
     }
-
-
 
     @GetMapping(path = "/getBookings")
     public Collection<Booking> getBookings(){
