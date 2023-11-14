@@ -1,13 +1,33 @@
 This is the Google Pub/Sub fake.
 Implementation may be incomplete or differ from the real system.
-Nov 13, 2023 7:56:54 PM com.google.cloud.pubsub.testing.v1.Main main
+Nov 14, 2023 10:47:09 AM com.google.cloud.pubsub.testing.v1.Main main
 INFO: IAM integration is disabled. IAM policy methods and ACL checks are not supported
 SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
 SLF4J: Defaulting to no-operation (NOP) logger implementation
 SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
-Nov 13, 2023 7:56:55 PM com.google.cloud.pubsub.testing.v1.Main main
+Nov 14, 2023 10:47:09 AM com.google.cloud.pubsub.testing.v1.Main main
 INFO: Server started, listening on 8083
-Nov 13, 2023 7:57:14 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Nov 14, 2023 10:47:30 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.
-Nov 13, 2023 7:57:15 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+Nov 14, 2023 10:47:30 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+Nov 14, 2023 11:04:06 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+Nov 14, 2023 11:04:06 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+Nov 14, 2023 11:06:55 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+Nov 14, 2023 11:06:55 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+Nov 14, 2023 11:07:52 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+Nov 14, 2023 11:07:52 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+Nov 14, 2023 11:14:24 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+Nov 14, 2023 11:14:25 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+Nov 14, 2023 11:22:04 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+Nov 14, 2023 11:22:04 AM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
 INFO: Detected HTTP/2 connection.

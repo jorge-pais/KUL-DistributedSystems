@@ -81,12 +81,13 @@ public class Application {
 
         TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(
                 GrpcTransportChannel.create(
-                        ManagedChannelBuilder.forTarget("localhost:8083")
+                        ManagedChannelBuilder.forTarget("localhost:8083/subscription")
                                 .usePlaintext().build()));
 
         CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
 
         // check if the topic already exists
+        // and create it if not
         try (TopicAdminClient topicAdminClient = TopicAdminClient.create(
                 TopicAdminSettings.newBuilder()
                         .setTransportChannelProvider(channelProvider)
@@ -104,10 +105,10 @@ public class Application {
     }
 
     @Bean
-    public Subscriber subscriber() throws IOException{
+    public void subscriber() throws IOException{
         TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(
                 GrpcTransportChannel.create(
-                        ManagedChannelBuilder.forTarget("localhost:8083")
+                        ManagedChannelBuilder.forTarget("localhost:8083/subscription")
                                 .usePlaintext().build()));
 
         CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
@@ -121,7 +122,7 @@ public class Application {
 
         SubscriptionName subscriptionName = SubscriptionName.of(projectId(), "confirmQuotesSubscription");
         PushConfig pushConfig = PushConfig.newBuilder()
-                //.setPushEndpoint("localhost:8083")
+                .setPushEndpoint("localhost:8083/subscription")
                 .build();
 
         try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
@@ -131,20 +132,6 @@ public class Application {
                 subscription = subscriptionAdminClient.createSubscription(subscriptionName, TopicName.of(projectId(), "confirmQuotes"), pushConfig, 60);
             }
         }
-
-        MessageReceiver receiver =
-            (PubsubMessage message, AckReplyConsumer consumer) ->{
-                test(message);
-                consumer.ack();
-            };
-
-        Subscriber subscriber = Subscriber.newBuilder(subscription.getName(), receiver)
-                .setChannelProvider(channelProvider)
-                .setCredentialsProvider(credentialsProvider)
-                .build();
-
-        subscriber.startAsync().awaitRunning();
-        return subscriber;
     }
 
     @Bean
@@ -154,11 +141,6 @@ public class Application {
                 .setCredentials(new FirestoreOptions.EmulatorCredentials())
                 .setEmulatorHost("localhost:8084")
                 .build().getService();
-    }
-
-    public static void test(PubsubMessage message){
-        System.out.println("Received message:" + message.getMessageId());
-        System.out.println("The message was: " + message.getData().toStringUtf8());
     }
 
     public static String getApiKey() { // Hidden external API key!

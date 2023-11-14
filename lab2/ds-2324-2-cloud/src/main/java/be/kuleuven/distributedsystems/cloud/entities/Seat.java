@@ -2,6 +2,8 @@ package be.kuleuven.distributedsystems.cloud.entities;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -93,4 +95,29 @@ public class Seat {
 
         return 0;
     };
+
+    public Map<String, Object> toMap() {
+        Map<String, Object> seatMap = new HashMap<>();
+        seatMap.put("trainCompany", trainCompany);
+        seatMap.put("trainId", trainId.toString());
+        seatMap.put("seatId", seatId.toString());
+        seatMap.put("time", time.toString());
+        seatMap.put("type", type);
+        seatMap.put("name", name);
+        seatMap.put("price", price);
+        return seatMap;
+    }
+
+    public void setTrainId(String id) {
+        this.trainId = UUID.fromString(id);
+    }
+
+    public void setSeatId(String id) {
+        this.seatId = UUID.fromString(id);
+    }
+
+    public void setTime(String time) {
+        this.time = LocalDateTime.parse(time);
+    }
+
 }

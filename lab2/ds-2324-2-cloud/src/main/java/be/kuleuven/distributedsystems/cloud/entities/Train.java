@@ -1,5 +1,7 @@
 package be.kuleuven.distributedsystems.cloud.entities;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public class Train {
@@ -40,6 +42,10 @@ public class Train {
         return this.image;
     }
 
+    public void setTrainId(String id) {
+        this.trainId = UUID.fromString(id);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (!(o instanceof Train)) {
@@ -54,4 +60,16 @@ public class Train {
     public int hashCode() {
         return this.trainCompany.hashCode() * this.trainId.hashCode();
     }
+
+    // Add this method to your Train class
+    public Map<String, Object> toMap() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("trainCompany", this.trainCompany);
+        map.put("trainId", this.trainId.toString());
+        map.put("name", this.name);
+        map.put("location", this.location);
+        map.put("image", this.image);
+        return map;
+    }
+
 }
