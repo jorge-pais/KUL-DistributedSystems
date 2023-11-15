@@ -58,9 +58,6 @@ public class Application {
         return "demo-distributed-systems-kul";
     }
 
-    /*
-     * You can use this builder to create a Spring WebClient instance which can be used to make REST-calls.
-     */
     @Bean
     WebClient.Builder webClientBuilder(HypermediaWebClientConfigurer configurer) {
         return configurer.registerHypermediaTypes(WebClient.builder()
@@ -87,6 +84,7 @@ public class Application {
         CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
 
         // check if the topic already exists
+        // and create it if not
         try (TopicAdminClient topicAdminClient = TopicAdminClient.create(
                 TopicAdminSettings.newBuilder()
                         .setTransportChannelProvider(channelProvider)
@@ -104,7 +102,7 @@ public class Application {
     }
 
     @Bean
-    public Subscriber subscriber() throws IOException{
+    public void subscriber() throws IOException{
         TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(
                 GrpcTransportChannel.create(
                         ManagedChannelBuilder.forTarget("localhost:8083")
@@ -120,31 +118,27 @@ public class Application {
         Subscription subscription = null;
 
         SubscriptionName subscriptionName = SubscriptionName.of(projectId(), "confirmQuotesSubscription");
+
+        // Make the pubsub metadata part of the HTTP header,
+        // instead of sending it in the body
+        //PushConfig.NoWrapper noWrapper = PushConfig.NoWrapper.newBuilder().setWriteMetadata(true).build();
+
         PushConfig pushConfig = PushConfig.newBuilder()
-                //.setPushEndpoint("localhost:8083")
+                .setPushEndpoint("http://localhost:8080/push/confirmQuoteSub")
+                //.setNoWrapper(noWrapper)
                 .build();
 
         try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
             subscription = subscriptionAdminClient.getSubscription(subscriptionName);
-        }catch (Exception e){ // Last try that again but this time good - D.Lynch
+            subscriptionAdminClient.deleteSubscription(subscriptionName);
+            throw new Exception();
+        }catch (Exception e){ // Let's try that again but this time good - D.Lynch
             try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
                 subscription = subscriptionAdminClient.createSubscription(subscriptionName, TopicName.of(projectId(), "confirmQuotes"), pushConfig, 60);
+                System.out.println("Subscription created!");
             }
         }
 
-        MessageReceiver receiver =
-            (PubsubMessage message, AckReplyConsumer consumer) ->{
-                test(message);
-                consumer.ack();
-            };
-
-        Subscriber subscriber = Subscriber.newBuilder(subscription.getName(), receiver)
-                .setChannelProvider(channelProvider)
-                .setCredentialsProvider(credentialsProvider)
-                .build();
-
-        subscriber.startAsync().awaitRunning();
-        return subscriber;
     }
 
     @Bean
@@ -156,17 +150,12 @@ public class Application {
                 .build().getService();
     }
 
-    public static void test(PubsubMessage message){
-        System.out.println("Received message:" + message.getMessageId());
-        System.out.println("The message was: " + message.getData().toStringUtf8());
-    }
-
     public static String getApiKey() { // Hidden external API key!
         try {
             File file = new ClassPathResource("API_KEY").getFile();
 
             String key = new String(Files.readAllBytes(file.toPath()));
-            System.out.println("API_KEY = " + key);
+            //System.out.println("API_KEY = " + key);
             return key;
         }catch (IOException e){
             e.printStackTrace();
