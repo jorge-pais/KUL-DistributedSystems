@@ -1,0 +1,49 @@
+\begin{figure}
+    \centering
+    \begin{tikzpicture}[
+        node distance=1 cm and 2 cm,
+        auto,
+        block/.style={
+            rectangle,
+            draw,
+            text width=5em,
+            text centered,
+            rounded corners,
+            minimum height=3em,
+            fill=white
+        },
+        line/.style={
+            draw, -latex', big arrow
+        },
+        cloud/.style={
+            draw,
+            ellipse,
+            fill=gray!20
+        }
+    ]
+    
+    % Nodes
+    \node[block, below=of cloud] (authentication) {Firebase Authentication};
+    \node[block, below=of authentication] (frontend) {Front End App};
+    \node[block, right=of frontend] (firestore) {Cloud Firestore};
+    \node[block, below=of frontend] (pubsub) {Cloud Pub/Sub};
+    \node[block, below=of firestore] (worker) {Worker};
+    \node[block, below=of worker, xshift=-2cm] (reliable) {Reliable Trains};
+    \node[block, below=of worker, xshift=2cm] (unreliable) {Unreliable Trains};
+    \node[block, left=of authentication] (user) {Client Application};
+    
+    % Paths
+    \path[line] (user) -- (authentication);
+    \path[line] (user) -- (frontend);
+    \path[line] (frontend) -- (authentication);
+    \path[line] (frontend) -- (firestore);
+    \path[line] (frontend) -- (pubsub);
+    \path[line] (pubsub) -- (worker);
+    \path[line] (worker) -- (firestore);
+    \path[line] (worker) -- (reliable);
+    \path[line] (worker) -- (unreliable);
+    
+    \end{tikzpicture}
+    \caption{Component Diagram}
+    \label{fig:compDiag}
+\end{figure}
