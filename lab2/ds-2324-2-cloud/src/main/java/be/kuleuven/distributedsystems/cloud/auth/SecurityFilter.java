@@ -31,7 +31,7 @@ public class SecurityFilter extends OncePerRequestFilter {
         String idToken = request.getHeader("Authorization");
         if(idToken == null) return;
 
-        // TODO: ASK IF THIS IS IMPORTANT
+        // TODO: PERGUNTAR SE ESTA MERDA É IMPORTANTE
         idToken = idToken.substring(7); // JANK way to remove the Bearer from the string
 
         String email = "no_email";
