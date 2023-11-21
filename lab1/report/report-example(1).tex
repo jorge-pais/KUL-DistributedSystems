@@ -1,0 +1,99 @@
+\documentclass{ds-report}
+
+\assignment{Remote communication} % Set to `Remote communication` or `Project`.
+\authorOne{Jorge Pais} % Name of first team partner.
+\studentnumberOne{r0978562} % Student number of first team partner.
+\authorTwo{Tomás Maia} % Name of second team partner.
+\studentnumberTwo{r0974960}  % Student number of second team partner.
+
+\begin{document}
+	\maketitle
+
+    % 1. What is the role of stub and skeleton in Java RMI? Does REST have similar concepts?
+	\paragraph{Question 1} 
+        Stub - In Java RMI, the stub is a client-side proxy for a remote object. It acts as a local representative of the remote object, providing a way for the client to invoke methods on the remote object as if it were a local object. The stub performs several key tasks: it marshals method calls and parameters, sends them to the remote object, waits for the result of the method invocation, unmarshals the return value or exception returned, and then returns the value to the caller. It abstracts the complexities of remote communication from the client, like the serialization of parameters and the network-level communication, making it appear as if it's calling methods on a local object, thus offering a straightforward invocation mechanism.
+    
+        Skeleton - On the other hand, the skeleton is a server-side component. It is responsible for receiving incoming method calls from clients, unmarshaling the requests and dispatching them to the actual remote object's implementation, and finally it marshals the result to the caller.
+
+        Regarding REST, it does not have direct similar concepts to both stubs and skeletons since it has a different architectural style when compared to Java RMI. Instead, REST uses Uniform Resource Identifiers (URIs) to identify resources (instead of a central registry) and works through HTTP protocols using some methods, such as POST, GET, PUT and DELETE. Simply put, REST services do not use client-side proxies to invoke methods on remote objects and methods, and instead use HTTP to interact with remote resources.
+
+    % 2. What is the difference between serializable and remote? In your Java RMI assignment, which classes were made serializable and which classes were made remote? Motivate your choice.
+	\paragraph{Question 2} 
+    Both \texttt{serializable} and \texttt{remote} are two keywords in the Java language. \texttt{Serializable} merely indicates that a class (which implements it) can be converted into a stream of bytes. As for \texttt{remote}, it is used within Java RMI to indicate which methods are to be available remotely and registered into the server's registry.
+    
+    In the developed implementation, the class \texttt{BookingDetail} was made serializable, since this is the one that was responsible for carrying data between the server and the client. The Room class actually doesn't need to be serializable, since none of the remote methods returns this type, and neither do they take this object type as an argument, but it was also made serializable for future-proofness.
+    
+    Meanwhile, the only class that was made remote (or at least its methods) was the interface \texttt{IBookingManager}. This choice was made since this interface hosts the method declarations for the shared methods used both by the server and the client.
+	
+    % 3. What role does the RMI registry play? Why is there no registry in REST?
+    \paragraph{Question 3}
+	The RMI registry acts as a simple name/lookup service that allows remote clients to get a reference to a remote object for a given name associated with it. However, distributed object systems are built on the assumption that all system components adhere to an object-oriented paradigm, communicate using a consistent RMI protocol, or employ a uniform language-specific byte-serialized object format. 
+    
+    In contrast, as stated in the previous question, REST does not have a registry because it operates on a different architectural principle, where servers directly expose resources through URIs without the need for a registry to locate and interact with them. Therefore, REST is platform-independent, where clients and servers on different software platforms can interact with each other as long as they communicate through HTTP, which is a universally adopted protocol.
+
+    % 4. How do you make sure that your Java RMI implementation is thread-safe? Moreover, which methods were required and selected to be thread-safe? Can you motivate your decisions?
+    \paragraph{Question 4} 
+
+    To guarantee that our implementation is thread-safe, tolerates multiple execution threads acting upon the same data, some modifications were made to the existing code. For the implementation in question only the \texttt{addBooking()} method was altered in order to prevent that two clients add a booking at the same time. 
+    
+    The initial (naive) approach was to add the \texttt{synchronized} keyword to the method signature. But this has the problem that two clients trying to add a booking to different rooms, would inevitably block each other. Instead, a \texttt{ReentrantLock} was added as an attribute of the \texttt{Room} object. This lock is then utilized while calling the \texttt{addBooking()}, which looks up the room, adds the booking and once it is done it drops the lock, allowing another method call for that same room. 
+
+    % 5. Level 3 RESTful APIs are hypermedia-driven. How does this affect the evolution of your software, and more specifically your APIs in terms of coupling and future upgrades?
+    \paragraph{Question 5} 
+
+    Regarding coupling, in the Richardson Maturity Model for REST, Level 3 provides hypermedia controls, where links are included in the response body for follow-up actions. As an example, in our particular case, in the \texttt{MealsRestController.java}, every time one fetched a meal, it reflected 2 links: a link to fetch the meal and another one to the list of all the meals. This allows the clients to navigate through other available resources related to a given resource, and therefore clients are no longer hard-coded with the knowledge of specific URLs or resource paths of the server. This decouples the clients and the server, making the server side more resilient to changes in URLs since there is no need to update the clients about these changes.
+
+    Furthermore, given that clients are allowed to navigate through the links that were included in the response body of their request, the API can evolve more fluidly. New resources can be added since clients can still interact with these changes as long as they follow the links provided by the server, giving more flexibility to the server in terms of future upgrades.
+    
+    % 6. During the REST session, you used a code generator to generate the server side of the application. what other components could you generate from the OpenAPI specification?
+    \paragraph{Question 6} 
+    
+    During the session, the OpenAPI code generator was utilised to create the server method signatures and parts of the code handling HTTP requests, decreasing the amount of boilerplate code that had to be written manually. Also, as utilised in these sessions, the OpenAPI specification can be utilised to automatically generate API documentation for manually written code.
+
+    Besides what was done in the context of the assignment, OpenAPI could be utilised to do client SDKs\cite{OpenAPI_Jetbrains}. These can then be deployed within client applications to ease API usage.
+
+    % 7. Your OpenAPI specification indicates that “Name” is a mandatory field for a meal. Your client received the specification, can you be sure “Name” will always be present when you receive a request from that client? When you generate server code from this specification, will your application check if “Name” is always present?
+    \paragraph{Question 7}
+
+    In our OpenAPI specification, it is indicated that "Name" is a required field for a meal. However, although clients have received the specification on the expected structure of requests and responses, they are not forced to adhere to it. Therefore, clients might not always send a "Name" field. In case this happens, the application with the generated server code from the specification will not check if the field "Name" is present. This means that if we want to guarantee that the field "Name" is sent by the clients, we need to implement this logic on the server-side code.
+
+
+    % 8. What is the advantage of using code generation, e.g. using OpenAPI, over a language-integrated solution such as Java RMI? What are the downsides of using code generation from an implementation perspective?
+    \paragraph{Question 8} 
+
+    Automatic code generation as what is offered by OpenAPI has several advantages when compared to RMI. Firstly, as mentioned in the answer to question 6, this approach can minimise the amount of time that is spent writing boilerplate code for REST applications, avoiding human error. Speaking of REST, OpenAPI provides an easy way to describe RESTful applications, while in Java RMI this can prove a challenging task for the uninitiated.
+
+    Given all this, there are also disadvantages to using code generation. Overall, code generation tools are unable to always give the most optimised possible code. They are also limited by the way they are defined and are not able to handle more complex requirements, which may lead programmers to tinker with and modify the code to make it work the way that is intended, which can become more time-consuming. Meanwhile, Java RMI can provide a simple and easy way to create distributed applications, but it's limited to Java only. 
+
+    % 9. How do Java RMI and a RESTful service compare in terms of flexibility (e.g., at platform level), extensibility (in particular when working with third parties), and susceptibility to protocol errors?
+    \paragraph{Question 9}
+
+    In terms of flexibility, Java RMI is worse when compared to a RESTful service, given that, unlike RESTful services, it is coupled to the Java platform, allowing communication with only Java clients, limiting interoperability across different platforms.
+
+    Regarding extensibility, RESTful services are also much better, since they provide ubiquitous interfaces for interaction with applications. In the meanwhile, Java RMI, as mentioned previously, can only provide extensibility for Java client applications.
+
+    Finally, as for susceptibility to protocol errors, RESTful services are also much better, since they are built upon the HTTP protocol which has many built-in error-handling mechanisms. Java RMI on the other hand uses its protocol, possibly making it vulnerable to errors in its implementation.
+
+    % 10. Suppose that you are tasked with developing the following applications, which of the two remote communication technologies (Java RMI, REST) would you use to realize them? What is your motivation for choosing a specific technology? If you choose REST, is it beneficial to also use OpenAPI? (a) A public web API that can be used by applications all over the world. (b) The internal communication of a high-performance SaaS application that consists of multiple distributed components, written in various programming languages. (c) An internal distributed application of a large company, written in Java only
+    \paragraph{Question 10}
+    \renewcommand{\labelenumi}{\alph{enumi}}
+    \begin{enumerate}
+        \item For a public web API utilised throughout the world, it makes sense to implement a RESTful architecture since this style is easily scalable, meaning that it can be used to handle a large number of requests. It is also language agnostic, making it available to many more developers who might be interested in using it. OpenAPI could be used to easily develop this since it can generate much of the boilerplate code and also provide documentation for it.
+        
+        \item As for the Software-as-a-Service high-performance application, REST is also the obvious choice. In this case, many of the components are written in different programming languages, language agnosticism is pretty much a requirement, which REST can fulfil. OpenAPI can also be utilised, in order to define some of the API and its documentation.
+        
+        \item As for the Java application, it makes sense for it to utilise Java RMI, since it enables developers to easily distribute many methods across different JVMs on a network, allowing almost seamless operation and integration into existing Java software. 
+    \end{enumerate}
+
+	\clearpage
+	
+	% You can include diagrams here.
+
+\begin{thebibliography}{9}
+    \bibitem{OpenAPI_Jetbrains}
+    “OpenAPI: IntelliJ idea,” IntelliJ IDEA Help, https://www.jetbrains.com/help/idea/openapi.html (accessed Oct. 17, 2023). 
+
+\end{thebibliography}
+ 
+	
+\end{document}
