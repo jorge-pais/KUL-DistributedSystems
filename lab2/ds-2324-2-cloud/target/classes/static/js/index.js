@@ -1,7 +1,7 @@
 import { h, render } from "https://esm.sh/preact@10.17.1";
 import Router from "https://esm.sh/preact-router@4.1.2";
 import htm from "https://esm.sh/htm@3.1.1";
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.6.0/firebase-app.js";
 import {
   getAuth,
   connectAuthEmulator,
@@ -27,7 +27,14 @@ if (location.hostname === "localhost") {
   };
 } else {
   firebaseConfig = {
-    // TODO: for level 2, paste your config here
+    // TODO: for level 2, paste your config h
+        apiKey: "AIzaSyAvXUKB5WuVz3VmNiCqm5lYkCwMLuVo43o",
+        authDomain: "distributedsystems-tmaiajpais.firebaseapp.com",
+        projectId: "distributedsystems-tmaiajpais",
+        storageBucket: "distributedsystems-tmaiajpais.appspot.com",
+        messagingSenderId: "1019805277300",
+        appId: "1:1019805277300:web:f89e5f4f39cfb603ee8521"
+      };
   };
 }
 

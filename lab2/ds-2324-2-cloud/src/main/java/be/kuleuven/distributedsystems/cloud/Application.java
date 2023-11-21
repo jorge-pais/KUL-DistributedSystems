@@ -28,8 +28,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
 import javax.annotation.PostConstruct;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.URL;
 import java.nio.file.Files;
 import java.util.Objects;
@@ -49,13 +48,14 @@ public class Application {
     }
 
     @Bean
-    public boolean isProduction() {
+    public static boolean isProduction() {
         return Objects.equals(System.getenv("GAE_ENV"), "standard");
     }
 
     @Bean
-    public static String projectId() {
-        return "demo-distributed-systems-kul";
+    public static String projectId()
+    {
+        return "distributedsystems-tmaiajpais";
     }
 
     @Bean
@@ -75,67 +75,88 @@ public class Application {
     @Bean
     public Publisher publisher() throws IOException{
         TopicName topicName = TopicName.of(projectId(), "confirmQuotes");
+        TransportChannelProvider channelProvider = null;
+        if(!Application.isProduction()) {
+            channelProvider = FixedTransportChannelProvider.create(
+                    GrpcTransportChannel.create(
+                            ManagedChannelBuilder.forTarget("localhost:8083")
+                                    .usePlaintext().build()));
 
-        TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(
-                GrpcTransportChannel.create(
-                        ManagedChannelBuilder.forTarget("localhost:8083")
-                                .usePlaintext().build()));
+            CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
 
-        CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
-
-        // check if the topic already exists
-        // and create it if not
-        try (TopicAdminClient topicAdminClient = TopicAdminClient.create(
-                TopicAdminSettings.newBuilder()
-                        .setTransportChannelProvider(channelProvider)
+            try (TopicAdminClient topicAdminClient = TopicAdminClient.create(
+                    TopicAdminSettings.newBuilder()
+                            .setTransportChannelProvider(channelProvider)
+                            .setCredentialsProvider(credentialsProvider)
+                            .build())) {
+                topicAdminClient.createTopic(topicName);
+                return Publisher.newBuilder(topicName)
+                        .setChannelProvider(channelProvider)
                         .setCredentialsProvider(credentialsProvider)
-                        .build())) {
-            topicAdminClient.createTopic(topicName);
-        }catch (Exception e){
-            System.out.println("Topic already exists!");
+                        .build();
+            }catch (Exception e){
+                System.out.println("Either an error occurred or topic already exists!");
+                e.printStackTrace();
+            }
         }
 
+        // return the cloud one
         return Publisher.newBuilder(topicName)
-                .setChannelProvider(channelProvider)
-                .setCredentialsProvider(credentialsProvider)
                 .build();
     }
 
     @Bean
     public void subscriber() throws IOException{
-        TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(
-                GrpcTransportChannel.create(
-                        ManagedChannelBuilder.forTarget("localhost:8083")
-                                .usePlaintext().build()));
 
-        CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
+        SubscriptionAdminSettings subscriptionAdminSettings;
 
-        SubscriptionAdminSettings subscriptionAdminSettings = SubscriptionAdminSettings.newBuilder()
-                .setCredentialsProvider(credentialsProvider)
-                .setTransportChannelProvider(channelProvider)
-                .build();
+        PushConfig pushConfig;
+        if(!Application.isProduction()) {
 
-        Subscription subscription = null;
+            TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(
+                    GrpcTransportChannel.create(
+                            ManagedChannelBuilder.forTarget("localhost:8083")
+                                    .usePlaintext().build()));
+
+            CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
+
+            subscriptionAdminSettings = SubscriptionAdminSettings.newBuilder()
+                    .setCredentialsProvider(credentialsProvider)
+                    .setTransportChannelProvider(channelProvider)
+                    .build();
+
+            pushConfig = PushConfig.newBuilder()
+                    .setPushEndpoint("http://localhost:8080/push/confirmQuoteSub")
+                    //.setNoWrapper(noWrapper)
+                    .build();
+        }else {
+            subscriptionAdminSettings = SubscriptionAdminSettings.newBuilder().build();
+            pushConfig = PushConfig.newBuilder()
+                    .setPushEndpoint("https://distributedsystems-tmaiajpais.ew.r.appspot.com/push/confirmQuoteSub")
+                    //.setNoWrapper(noWrapper)
+                    .build();
+        }
 
         SubscriptionName subscriptionName = SubscriptionName.of(projectId(), "confirmQuotesSubscription");
 
         // Make the pubsub metadata part of the HTTP header,
         // instead of sending it in the body
-        //PushConfig.NoWrapper noWrapper = PushConfig.NoWrapper.newBuilder().setWriteMetadata(true).build();
 
-        PushConfig pushConfig = PushConfig.newBuilder()
-                .setPushEndpoint("http://localhost:8080/push/confirmQuoteSub")
-                //.setNoWrapper(noWrapper)
-                .build();
 
         try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
-            subscription = subscriptionAdminClient.getSubscription(subscriptionName);
+            Subscription subscription = subscriptionAdminClient.getSubscription(subscriptionName);
             subscriptionAdminClient.deleteSubscription(subscriptionName);
             throw new Exception();
-        }catch (Exception e){ // Let's try that again but this time good - D.Lynch
+        }
+        catch (Exception e){
+            // Let's try that again but this time good - D.Lynch
             try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
-                subscription = subscriptionAdminClient.createSubscription(subscriptionName, TopicName.of(projectId(), "confirmQuotes"), pushConfig, 60);
+                Subscription subscription = subscriptionAdminClient.createSubscription(subscriptionName, TopicName.of(projectId(), "confirmQuotes"), pushConfig, 60);
                 System.out.println("Subscription created!");
+            }
+            catch (Exception e_){
+                e_.printStackTrace();
+                System.out.println("error creating subscriber");
             }
         }
 
@@ -152,11 +173,12 @@ public class Application {
 
     public static String getApiKey() { // Hidden external API key!
         try {
-            File file = new ClassPathResource("API_KEY").getFile();
+            InputStream is = new ClassPathResource("API_KEY").getInputStream();
+            BufferedReader bf = new BufferedReader(new InputStreamReader(is));
 
-            String key = new String(Files.readAllBytes(file.toPath()));
+            //String key = bf.readLine();
             //System.out.println("API_KEY = " + key);
-            return key;
+            return bf.readLine(); // return key;
         }catch (IOException e){
             e.printStackTrace();
             return null;

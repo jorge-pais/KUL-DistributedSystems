@@ -3,6 +3,7 @@
 /home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/entities/User.java
 /home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/entities/Quote.java
 /home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/Application.java
+/home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/entities/PubsubContainer.java
 /home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/controller/FirebaseWrapper.java
 /home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/auth/SecurityConfiguration.java
 /home/jorgep/OneDrive/Faculdade/Mestrado/2Ano/DistributedSystems/labs/lab2/ds-2324-2-cloud/src/main/java/be/kuleuven/distributedsystems/cloud/controller/ConfirmQuotesAsync.java
