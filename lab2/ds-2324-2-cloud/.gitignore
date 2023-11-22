@@ -1,4 +1,5 @@
 firebase-tools-instant-win.exe
+target/cloud-3.0.war*
 # Compiled class file
 *.class
 
