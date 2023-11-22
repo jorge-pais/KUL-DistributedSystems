@@ -45,6 +45,8 @@ public class Application {
 
         // TODO: (level 2) load this data into Firestore
         String data = new String(new ClassPathResource("data.json").getInputStream().readAllBytes());
+
+
     }
 
     @Bean
@@ -111,7 +113,7 @@ public class Application {
         SubscriptionAdminSettings subscriptionAdminSettings;
 
         PushConfig pushConfig;
-        if(!Application.isProduction()) {
+        if(!Application.isProduction()) { // Running in firebase emulator suite!
 
             TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(
                     GrpcTransportChannel.create(
@@ -129,45 +131,47 @@ public class Application {
                     .setPushEndpoint("http://localhost:8080/push/confirmQuoteSub")
                     //.setNoWrapper(noWrapper)
                     .build();
-        }else {
+
+            SubscriptionName subscriptionName = SubscriptionName.of(projectId(), "confirmQuotesSubscription");
+
+            // Create subscription
+            try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
+                Subscription subscription = subscriptionAdminClient.getSubscription(subscriptionName);
+                subscriptionAdminClient.deleteSubscription(subscriptionName);
+                throw new Exception();
+            }
+            catch (Exception e){
+                // Let's try that again but this time good - D.Lynch
+                try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
+                    Subscription subscription = subscriptionAdminClient.createSubscription(subscriptionName, TopicName.of(projectId(), "confirmQuotes"), pushConfig, 60);
+                    System.out.println("Subscription created!");
+                }
+                catch (Exception e_){
+                    e_.printStackTrace();
+                    System.out.println("error creating subscriber");
+                }
+            }
+        }
+        else { // in the cloud you clown!
             subscriptionAdminSettings = SubscriptionAdminSettings.newBuilder().build();
             pushConfig = PushConfig.newBuilder()
                     .setPushEndpoint("https://distributedsystems-tmaiajpais.ew.r.appspot.com/push/confirmQuoteSub")
                     //.setNoWrapper(noWrapper)
                     .build();
         }
-
-        SubscriptionName subscriptionName = SubscriptionName.of(projectId(), "confirmQuotesSubscription");
-
-        // Make the pubsub metadata part of the HTTP header,
-        // instead of sending it in the body
-
-
-        try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
-            Subscription subscription = subscriptionAdminClient.getSubscription(subscriptionName);
-            subscriptionAdminClient.deleteSubscription(subscriptionName);
-            throw new Exception();
-        }
-        catch (Exception e){
-            // Let's try that again but this time good - D.Lynch
-            try (SubscriptionAdminClient subscriptionAdminClient = SubscriptionAdminClient.create(subscriptionAdminSettings)) {
-                Subscription subscription = subscriptionAdminClient.createSubscription(subscriptionName, TopicName.of(projectId(), "confirmQuotes"), pushConfig, 60);
-                System.out.println("Subscription created!");
-            }
-            catch (Exception e_){
-                e_.printStackTrace();
-                System.out.println("error creating subscriber");
-            }
-        }
-
     }
 
     @Bean
     public Firestore db(){
-        return FirestoreOptions.getDefaultInstance().toBuilder()
+        if(!Application.isProduction())
+            return FirestoreOptions.getDefaultInstance().toBuilder()
                 .setProjectId(projectId())
                 .setCredentials(new FirestoreOptions.EmulatorCredentials())
                 .setEmulatorHost("localhost:8084")
+                .build().getService();
+
+        return FirestoreOptions.getDefaultInstance().toBuilder()
+                .setProjectId(projectId())
                 .build().getService();
     }
 

@@ -1,4 +1,4 @@
-import { h, Component } from "https://esm.sh/preact@10.17.1";
+import { h, Component } from "https://esm.sh/preact@10.19.2";
 import htm from "https://esm.sh/htm@3.1.1";
 import { getAuth } from "./state.js";
 
@@ -19,7 +19,7 @@ export class Manager extends Component {
     const response1 = await fetch("/api/getBestCustomers", {
       headers: {
         Authorization: `Bearer ${await getAuth().currentUser.getIdToken(
-          false
+          false,
         )}`,
       },
     });
@@ -31,7 +31,7 @@ export class Manager extends Component {
     const response2 = await fetch("/api/getAllBookings", {
       headers: {
         Authorization: `Bearer ${await getAuth().currentUser.getIdToken(
-          false
+          false,
         )}`,
       },
     });
@@ -50,10 +50,10 @@ export class Manager extends Component {
             {
               headers: {
                 Authorization: `Bearer ${await getAuth().currentUser.getIdToken(
-                  false
+                  false,
                 )}`,
               },
-            }
+            },
           );
           if (!response.ok) {
             return html`${await response.text()}`;
@@ -67,10 +67,10 @@ export class Manager extends Component {
             {
               headers: {
                 Authorization: `Bearer ${await getAuth().currentUser.getIdToken(
-                  false
+                  false,
                 )}`,
               },
-            }
+            },
           );
           if (!response.ok) {
             return html`${await response.text()}`;
@@ -93,7 +93,7 @@ export class Manager extends Component {
         <div>
           <h2>Best customers</h2>
           ${this.state.bestCustomers.map(
-            (customer) => html` <div>${customer}</div>`
+            (customer) => html` <div>${customer}</div>`,
           )}
         </div>
         <div>
@@ -121,18 +121,18 @@ export class Manager extends Component {
                           dateStyle: "long",
                           timeStyle: "short",
                         }).format(
-                          new Date(this.state.seats.get(ticket.seatId).time)
+                          new Date(this.state.seats.get(ticket.seatId).time),
                         )}
                       </div>
                       <div>${this.state.seats.get(ticket.seatId).type}</div>
                       <div>${this.state.seats.get(ticket.seatId).name}</div>
                       <div>€ ${this.state.seats.get(ticket.seatId).price}</div>
                     </div>
-                  `
+                  `,
                 )}
                 <div>${booking.customer}</div>
               </div>
-            `
+            `,
           )}
         </div>
       </div>

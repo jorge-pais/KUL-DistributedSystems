@@ -1,4 +1,4 @@
-import { h, Component } from "https://esm.sh/preact@10.17.1";
+import { h, Component } from "https://esm.sh/preact@10.19.2";
 import htm from "https://esm.sh/htm@3.1.1";
 import { getAuth } from "./state.js";
 
@@ -16,7 +16,7 @@ export class Trains extends Component {
     const response = await fetch("/api/getTrains", {
       headers: {
         Authorization: `Bearer ${await getAuth().currentUser.getIdToken(
-          false
+          false,
         )}`,
       },
     });
@@ -46,7 +46,7 @@ export class Trains extends Component {
                   </div>
                 </div>
               </a>
-            `
+            `,
           )}
         </div>
       </div>

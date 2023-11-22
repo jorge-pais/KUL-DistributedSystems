@@ -22,6 +22,14 @@ public class Train {
         this.image = image;
     }
 
+    public Train(LocalTrain localTrain){
+        this.trainCompany = localTrain.getTrainCompany();
+        this.location = localTrain.getLocation();
+        this.trainId = UUID.randomUUID();
+        this.image = localTrain.getImage();
+        this.name = localTrain.getName();
+    }
+
     public String getTrainCompany() {
         return trainCompany;
     }

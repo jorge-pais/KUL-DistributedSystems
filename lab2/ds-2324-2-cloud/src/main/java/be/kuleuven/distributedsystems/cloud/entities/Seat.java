@@ -30,6 +30,16 @@ public class Seat {
         this.price = price;
     }
 
+    public Seat(LocalTrain.LocalSeat localSeat, Train train){
+        this.time = LocalDateTime.parse(localSeat.getTime());
+        this.name = localSeat.getName();
+        this.seatId = UUID.randomUUID();
+        this.price = localSeat.getPrice();
+        this.type = localSeat.getType();
+        this.trainCompany = train.getTrainCompany();
+        this.trainId = train.getTrainId();
+    }
+
     public String getTrainCompany() {
         return trainCompany;
     }

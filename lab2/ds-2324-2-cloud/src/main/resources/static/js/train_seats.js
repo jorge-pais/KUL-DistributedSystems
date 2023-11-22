@@ -1,4 +1,4 @@
-import { h, Component } from "https://esm.sh/preact@10.17.1";
+import { h, Component } from "https://esm.sh/preact@10.19.2";
 import htm from "https://esm.sh/htm@3.1.1";
 import { effect } from "https://esm.sh/@preact/signals@1.2.1";
 import { getAuth, getQuotes, setQuotes } from "./state.js";
@@ -30,10 +30,10 @@ export class TrainSeats extends Component {
       {
         headers: {
           Authorization: `Bearer ${await getAuth().currentUser.getIdToken(
-            false
+            false,
           )}`,
         },
-      }
+      },
     );
     if (!response1.ok) {
       return html`${await response1.text()}`;
@@ -45,10 +45,10 @@ export class TrainSeats extends Component {
       {
         headers: {
           Authorization: `Bearer ${await getAuth().currentUser.getIdToken(
-            false
+            false,
           )}`,
         },
-      }
+      },
     );
     if (!response2.ok) {
       return html`${await response2.text()}`;
@@ -80,7 +80,7 @@ export class TrainSeats extends Component {
         <div>
           ${Object.entries(this.state.seats)
             .sort(
-              (a, b) => sortingOrder.indexOf(a[0]) - sortingOrder.indexOf(b[0])
+              (a, b) => sortingOrder.indexOf(a[0]) - sortingOrder.indexOf(b[0]),
             )
             .map(
               ([name, seats]) => html`
@@ -93,7 +93,7 @@ export class TrainSeats extends Component {
                         (seat) => html`
                           <div
                             class="seat seat-${seat.name.slice(
-                              seat.name.length - 1
+                              seat.name.length - 1,
                             )}"
                           >
                             <button
@@ -113,11 +113,11 @@ export class TrainSeats extends Component {
                               ${seat.name}
                             </button>
                           </div>
-                        `
+                        `,
                       )}
                   </div>
                 </div>
-              `
+              `,
             )}
         </div>
       </div>

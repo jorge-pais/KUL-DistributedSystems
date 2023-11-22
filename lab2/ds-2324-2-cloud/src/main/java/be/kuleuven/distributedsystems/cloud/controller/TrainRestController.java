@@ -27,9 +27,11 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
 /*      TODO!!!!!
-* 3.    Cloud PUB/SUB. we have to modify the confirmQuotes so that it issues some job to a
-*       remote worker in the cloud that deals with these instead of the user. Then out application
-*       merely sends what is needed for it to work
+*   1. Guardar os tempos dos trains locais
+*   2. Guardar os availableSeats locais (num documentos), remover no booking
+*   3. Ler o json e escrever da db
+*   4. Validação dos security tokens
+*   5. arranjar maneira de ligar o SendGrid ao pub/sub
 * */
 
 @RestController

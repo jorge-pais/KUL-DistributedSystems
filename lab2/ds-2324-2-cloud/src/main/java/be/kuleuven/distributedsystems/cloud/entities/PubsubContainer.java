@@ -46,6 +46,36 @@ public class PubsubContainer {
 
         private String messageId;
 
+        public String getMessage_id() {
+            return message_id;
+        }
+
+        public void setMessage_id(String message_id) {
+            this.message_id = message_id;
+        }
+
+        private String message_id;
+
+        public String getPublishTime() {
+            return publishTime;
+        }
+
+        public void setPublishTime(String publishTime) {
+            this.publishTime = publishTime;
+        }
+
+        public String getPublish_time() {
+            return publish_time;
+        }
+
+        public void setPublish_time(String publish_time) {
+            this.publish_time = publish_time;
+        }
+
+        private String publishTime;
+
+        private String publish_time;
+
         public Map<String, String> getAttributes() {
             return attributes;
         }

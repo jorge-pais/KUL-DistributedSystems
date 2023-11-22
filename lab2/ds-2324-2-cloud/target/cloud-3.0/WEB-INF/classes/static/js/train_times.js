@@ -1,4 +1,4 @@
-import { h, Component } from "https://esm.sh/preact@10.17.1";
+import { h, Component } from "https://esm.sh/preact@10.19.2";
 import htm from "https://esm.sh/htm@3.1.1";
 import { getAuth } from "./state.js";
 
@@ -20,10 +20,10 @@ export class TrainTimes extends Component {
       {
         headers: {
           Authorization: `Bearer ${await getAuth().currentUser.getIdToken(
-            false
+            false,
           )}`,
         },
-      }
+      },
     );
     if (!response1.ok) {
       return html`${await response1.text()}`;
@@ -35,10 +35,10 @@ export class TrainTimes extends Component {
       {
         headers: {
           Authorization: `Bearer ${await getAuth().currentUser.getIdToken(
-            false
+            false,
           )}`,
         },
-      }
+      },
     );
     if (!response2.ok) {
       return html`${await response2.text()}`;
@@ -81,7 +81,7 @@ export class TrainTimes extends Component {
                   <div class="train-times-button-book">Book now</div>
                 </a>
               </div>
-            `
+            `,
           )}
         </div>
       </div>
