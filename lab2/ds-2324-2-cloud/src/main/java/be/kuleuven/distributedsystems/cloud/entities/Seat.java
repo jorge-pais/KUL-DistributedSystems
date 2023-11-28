@@ -1,5 +1,6 @@
 package be.kuleuven.distributedsystems.cloud.entities;
 
+
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -7,6 +8,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.time.format.DateTimeFormatter;
 
 public class Seat {
     private String trainCompany;
@@ -28,6 +30,16 @@ public class Seat {
         this.type = type;
         this.name = name;
         this.price = price;
+    }
+
+    public Seat(LocalTrain.LocalSeat localSeat, Train train){
+        this.time = LocalDateTime.parse(localSeat.getTime());
+        this.name = localSeat.getName();
+        this.seatId = UUID.randomUUID();
+        this.price = localSeat.getPrice();
+        this.type = localSeat.getType();
+        this.trainCompany = train.getTrainCompany();
+        this.trainId = train.getTrainId();
     }
 
     public String getTrainCompany() {
@@ -101,7 +113,11 @@ public class Seat {
         seatMap.put("trainCompany", trainCompany);
         seatMap.put("trainId", trainId.toString());
         seatMap.put("seatId", seatId.toString());
-        seatMap.put("time", time.toString());
+
+        // Format LocalDateTime with seconds
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+        seatMap.put("time", time.format(formatter));
+
         seatMap.put("type", type);
         seatMap.put("name", name);
         seatMap.put("price", price);

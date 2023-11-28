@@ -1,4 +1,4 @@
-import { h, Component } from "https://esm.sh/preact@10.17.1";
+import { h, Component } from "https://esm.sh/preact@10.19.2";
 import { route } from "https://esm.sh/preact-router@4.1.2";
 import htm from "https://esm.sh/htm@3.1.1";
 import { effect } from "https://esm.sh/@preact/signals@1.2.1";
@@ -32,10 +32,10 @@ export class Cart extends Component {
           {
             headers: {
               Authorization: `Bearer ${await getAuth().currentUser.getIdToken(
-                false
+                false,
               )}`,
             },
-          }
+          },
         );
         if (!response.ok) {
           return html`${await response.text()}`;
@@ -49,10 +49,10 @@ export class Cart extends Component {
           {
             headers: {
               Authorization: `Bearer ${await getAuth().currentUser.getIdToken(
-                false
+                false,
               )}`,
             },
-          }
+          },
         );
         if (!response.ok) {
           return html`${await response.text()}`;
@@ -83,7 +83,7 @@ export class Cart extends Component {
                           dateStyle: "long",
                           timeStyle: "short",
                         }).format(
-                          new Date(this.state.seats.get(quote.seatId).time)
+                          new Date(this.state.seats.get(quote.seatId).time),
                         )}
                       </div>
                       <div class="quote-seat-type">
@@ -98,7 +98,7 @@ export class Cart extends Component {
                   class="quote-remove-button"
                   onClick="${() => {
                     const quotes = this.state.quotes.filter(
-                      (q) => q.seatId !== quote.seatId
+                      (q) => q.seatId !== quote.seatId,
                     );
                     setQuotes(quotes);
                   }}"
@@ -106,7 +106,7 @@ export class Cart extends Component {
                   Remove
                 </button>
               </div>
-            `
+            `,
           )}
           ${this.state.quotes.length !== 0
             ? html`
@@ -118,7 +118,7 @@ export class Cart extends Component {
                       body: JSON.stringify(this.state.quotes),
                       headers: {
                         Authorization: `Bearer ${await getAuth().currentUser.getIdToken(
-                          false
+                          false,
                         )}`,
                         "Content-Type": "application/json",
                       },

@@ -11,10 +11,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.ByteArray;
-import com.google.cloud.firestore.DocumentReference;
-import com.google.cloud.firestore.DocumentSnapshot;
-import com.google.cloud.firestore.Firestore;
-import com.google.cloud.firestore.WriteResult;
+import com.google.cloud.firestore.*;
 import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient;
@@ -76,41 +73,71 @@ public class ConfirmQuotesAsync {
             for(Quote quote: quotes){
                 Ticket ticket = null;
 
-                Mono<ResponseEntity<Ticket>> responseMono = webClientBuilder // PUT request
-                        .baseUrl("https://" + quote.getTrainCompany())
-                        .build()
-                        .put()
-                        .uri(uriBuilder -> uriBuilder
-                                .pathSegment("trains", quote.getTrainId().toString(), "seats", quote.getSeatId().toString(), "ticket")
-                                .queryParam("key", API_KEY)
-                                .queryParam("customer", customer)
-                                .queryParam("bookingReference", bookingReference.toString())
-                                .build())
-                        .retrieve()
-                        .toEntity(Ticket.class);
-
                 try {
-                    ResponseEntity<Ticket> response = responseMono.block();
+                    if (quote.getTrainCompany().equals("InternalTrains")) {
+                        ticket = new Ticket("InternalTrains", quote.getTrainId(), quote.getSeatId(), UUID.randomUUID(), customer, bookingReference.toString());
 
-                    HttpStatusCode httpStatus = response.getStatusCode();
-                    if (httpStatus.is2xxSuccessful()) {
-                        ticket = response.getBody();
+                        // Check if the seat/ticket is already taken
+                        DocumentReference docRef= db.collection("takenSeats").document(quote.getSeatId().toString());
+                        Ticket finalTicket = ticket;
+                        db.runTransaction(transaction -> {
+                            DocumentSnapshot snapshot = transaction.get(docRef).get();
+                            if(snapshot.exists())
+                                throw new Exception();
+                            transaction.create(docRef, finalTicket.toMap());
+                            return null;
+                        });
 
                         tickets.add(ticket);
                         ticketMaps.add(ticket.toMap());
-                    }
-                    else{
-                        throw new Exception();
+                    } else {
+                        Mono<ResponseEntity<Ticket>> responseMono = webClientBuilder // PUT request
+                                .baseUrl("https://" + quote.getTrainCompany())
+                                .build()
+                                .put()
+                                .uri(uriBuilder -> uriBuilder
+                                        .pathSegment("trains", quote.getTrainId().toString(), "seats", quote.getSeatId().toString(), "ticket")
+                                        .queryParam("key", API_KEY)
+                                        .queryParam("customer", customer)
+                                        .queryParam("bookingReference", bookingReference.toString())
+                                        .build())
+                                .retrieve()
+                                .toEntity(Ticket.class);
+
+                        ResponseEntity<Ticket> response = responseMono.block();
+
+                        HttpStatusCode httpStatus = response.getStatusCode();
+                        if (httpStatus.is2xxSuccessful()) {
+                            ticket = response.getBody();
+
+                            tickets.add(ticket);
+                            ticketMaps.add(ticket.toMap());
+                        } else {
+                            throw new Exception();
+                        }
                     }
                 }
-                catch (Exception e){ // Couldn't PUT all tickets now attempt to remove all tickets from
-
+                // Couldn't PUT all tickets now attempt to remove all tickets
+                catch (Exception e) {
+                    System.out.println("Some error while getting the tickets");
                     for (Ticket ticket_ : tickets) { // Should probably do a while loop that checks for a successful remove
                         HttpStatusCode httpStatus = HttpStatus.NOT_FOUND;
 
+                        if(ticket_.getTrainCompany().equals("InternalTrains")){
+                            DocumentReference docRef= db.collection("takenSeats").document(ticket_.getSeatId().toString());
+                            db.runTransaction(transaction -> {
+                                DocumentSnapshot snapshot = transaction.get(docRef).get();
+                                if(snapshot.exists())
+                                    transaction.delete(docRef);
+                                return null;
+                            });
+
+                            continue;
+                        }
+
                         // this is in case unreliabletrains is not responding to a remove operation,
                         // in which case we definitely want to spam the remove requests.
-                        for (int i = 0; i < 25 && !httpStatus.is2xxSuccessful(); i++){
+                        for (int i = 0; i < 25 && !httpStatus.is2xxSuccessful(); i++) {
                             try {
                                 Mono<ResponseEntity<String>> responseEntity = webClientBuilder.baseUrl("https://" + ticket_.getTrainCompany())
                                         .build()
@@ -124,9 +151,7 @@ public class ConfirmQuotesAsync {
                                         .toEntity(String.class); // This should return 204
 
                                 httpStatus = responseEntity.block().getStatusCode();
-                                //System.out.println("Status was: " + httpStatus.toString());
-                            }catch (Exception ee){
-                                //System.out.println("Could remove the ticket: " + ticket.getSeatId());
+                            } catch (Exception ee) {
                                 httpStatus = HttpStatus.NOT_FOUND;
                             }
                         }
@@ -183,3 +208,5 @@ public class ConfirmQuotesAsync {
         return ResponseEntity.ok().build();
     }
 }
+
+

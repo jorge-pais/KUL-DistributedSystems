@@ -27,10 +27,12 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
 /*      TODO!!!!!
-* 3.    Cloud PUB/SUB. we have to modify the confirmQuotes so that it issues some job to a
-*       remote worker in the cloud that deals with these instead of the user. Then out application
-*       merely sends what is needed for it to work
-* */
+ *   1. Guardar os tempos dos trains locais
+ *   2. Guardar os availableSeats locais (num documentos), remover no booking
+ *   3. Ler o json e escrever da db
+ *   4. Validação dos security tokens
+ *   5. arranjar maneira de ligar o SendGrid ao pub/sub
+ * */
 
 @RestController
 @RequestMapping("/api")
@@ -64,6 +66,25 @@ public class TrainRestController {
                 //System.out.println("Couldn't GET trains from " + i);
                 return null;
             }
+        }
+
+        // Now, get local trains from Firestore
+        CollectionReference trainsCollection = db.collection("storedTrains");
+
+        // Create a query to retrieve trains with the specified company name
+        Query query = trainsCollection.whereEqualTo("trainCompany", "InternalTrains");
+        ApiFuture<QuerySnapshot> querySnapshot = query.get();
+
+        try {
+            for (DocumentSnapshot document : querySnapshot.get().getDocuments()) {
+                // Convert Firestore document to Train object
+                Train train = document.toObject(Train.class);
+                trains.add(train);
+            }
+        } catch (Exception e) {
+            // Handle the exception appropriately
+            e.printStackTrace();
+            return null;
         }
 
         return trains;
@@ -120,6 +141,8 @@ public class TrainRestController {
         // Check if the train is already stored in Firestore database
         DocumentReference trainRef = db.collection("storedTrains").document(trainId);
 
+        //System.out.println(trainId);
+
         try {
             DocumentSnapshot document = trainRef.get().get();
 
@@ -164,70 +187,147 @@ public class TrainRestController {
 
     @GetMapping(path = "/getTrainTimes")
     public Collection<String> getTrainTimes(@RequestParam String trainCompany, @RequestParam String trainId) throws NullPointerException{
-        Mono<ResponseEntity<CollectionModel<String>>> responseEntityMono =
-                webClientBuilder
-                .baseUrl("https://" + trainCompany)
-                .build()
-                .get()
-                .uri(uriBuilder -> uriBuilder
-                        .pathSegment("trains")
-                        .pathSegment(trainId)
-                        .pathSegment("times")
-                        .queryParam("key", API_KEY)
-                        .build())
-                .retrieve()
-                .toEntity(new ParameterizedTypeReference<CollectionModel<String>>(){});
 
-        try{
-            ResponseEntity<CollectionModel<String>> response = responseEntityMono.block();
-            HttpStatusCode statusCode = response.getStatusCode();
-            if(statusCode.is2xxSuccessful())
-                return response.getBody().getContent();
-            return null;
-        }catch (Exception e){
+        // Check if the Train times are already stored in Firestore database
+        Query query = db.collection("storedSeatTimes")
+                .whereEqualTo("trainCompany", trainCompany).whereEqualTo("trainId", trainId);
+
+        System.out.println(trainCompany);
+
+        try {
+            QuerySnapshot querySnapshot = query.get().get();
+
+            if (!querySnapshot.isEmpty()) {
+                List<String> trainTimes = new ArrayList<>();
+                for (QueryDocumentSnapshot document : querySnapshot) {
+                    // Assuming "time" is the field where train times are stored
+                    trainTimes.add((String) document.get("time"));
+                }
+                return trainTimes;
+            } else {
+                Mono<ResponseEntity<CollectionModel<String>>> responseEntityMono =
+                        webClientBuilder
+                                .baseUrl("https://" + trainCompany)
+                                .build()
+                                .get()
+                                .uri(uriBuilder -> uriBuilder
+                                        .pathSegment("trains")
+                                        .pathSegment(trainId)
+                                        .pathSegment("times")
+                                        .queryParam("key", API_KEY)
+                                        .build())
+                                .retrieve()
+                                .toEntity(new ParameterizedTypeReference<CollectionModel<String>>(){});
+
+                try{
+                    ResponseEntity<CollectionModel<String>> response = responseEntityMono.block();
+                    HttpStatusCode statusCode = response.getStatusCode();
+                    if(statusCode.is2xxSuccessful())
+                        return response.getBody().getContent();
+                    return null;
+                }catch (Exception e){
+                    return null;
+                }
+            }
+        } catch (Exception e) {
+            // Handle exceptions appropriately
+            e.printStackTrace();
             return null;
         }
     }
 
     @GetMapping(path = "/getAvailableSeats")
     public Map<String, Collection<Seat>> getAvailableSeats(@RequestParam String trainCompany, @RequestParam String trainId, @RequestParam String time)  {
-        Mono<ResponseEntity<CollectionModel<Seat>>> responseEntityMono = webClientBuilder
-                .baseUrl("https://" + trainCompany)
-                .build()
-                .get()
-                .uri(uriBuilder -> uriBuilder
-                        .pathSegment("trains", trainId, "seats")
-                        .queryParam("time", time)
-                        .queryParam("available", "true")
-                        .queryParam("key", API_KEY)
-                        .build())
-                .retrieve()
-                .toEntity(new ParameterizedTypeReference<CollectionModel<Seat>>(){});
-        Collection<Seat> seats = null;
+
+        // Check if the seats are already stored in Firestore database
+        Query query = db.collection("storedSeats")
+                .whereEqualTo("trainCompany", trainCompany)
+                .whereEqualTo("trainId", trainId)
+                .whereEqualTo("time", time);
+
+        //System.out.println(trainId);
+        //System.out.println(trainCompany);
+        //System.out.println(time);
+
         try {
-            ResponseEntity<CollectionModel<Seat>> response = responseEntityMono.block();
-            HttpStatusCode statusCode = response.getStatusCode();
-            if (statusCode.is2xxSuccessful())
-                seats = response.getBody().getContent();
+            ApiFuture<QuerySnapshot> querySnapshotFuture = query.get();
+            QuerySnapshot querySnapshot = querySnapshotFuture.get();
 
-            Map<String, Collection<Seat>> map = new HashMap<>();
+            System.out.println(querySnapshot.isEmpty());
 
-            ArrayList<Seat> secondClass = new ArrayList<>();
-            ArrayList<Seat> firstClass = new ArrayList<>();
-            for(Seat seat : seats)
-                if(seat.getType().equals("2nd class"))
-                    secondClass.add(seat);
-                else
-                    firstClass.add(seat);
+            if (!querySnapshot.isEmpty()) {
+                // Seats found in Firestore, process and return them
+                // Process and return seats found in Firestore
+                Collection<Seat> seats = new ArrayList<>();
 
-            firstClass.sort(Seat.seatComparator);
-            secondClass.sort(Seat.seatComparator);
+                for (QueryDocumentSnapshot document : querySnapshot) {
+                    Seat seat = document.toObject(Seat.class);
+                    System.out.println(seat.getTime());
+                    seats.add(seat);
+                }
+                // Group seats by class
+                Map<String, Collection<Seat>> map = new HashMap<>();
 
-            map.put("1st class", firstClass);
-            map.put("2nd class", secondClass);
+                ArrayList<Seat> secondClass = new ArrayList<>();
+                ArrayList<Seat> firstClass = new ArrayList<>();
+                for(Seat seat : seats)
+                    if(seat.getType().equals("2nd class"))
+                        secondClass.add(seat);
+                    else
+                        firstClass.add(seat);
 
-            return map;
-        }catch (Exception e){
+                firstClass.sort(Seat.seatComparator);
+                secondClass.sort(Seat.seatComparator);
+
+                map.put("1st class", firstClass);
+                map.put("2nd class", secondClass);
+
+                return map;
+            } else {
+                // Seats not found in Firestore, make an external API call
+                Mono<ResponseEntity<CollectionModel<Seat>>> responseEntityMono = webClientBuilder
+                        .baseUrl("https://" + trainCompany)
+                        .build()
+                        .get()
+                        .uri(uriBuilder -> uriBuilder
+                                .pathSegment("trains", trainId, "seats")
+                                .queryParam("time", time)
+                                .queryParam("available", "true")
+                                .queryParam("key", API_KEY)
+                                .build())
+                        .retrieve()
+                        .toEntity(new ParameterizedTypeReference<CollectionModel<Seat>>(){});
+                Collection<Seat> seats = null;
+                try {
+                    ResponseEntity<CollectionModel<Seat>> response = responseEntityMono.block();
+                    HttpStatusCode statusCode = response.getStatusCode();
+                    if (statusCode.is2xxSuccessful())
+                        seats = response.getBody().getContent();
+
+                    Map<String, Collection<Seat>> map = new HashMap<>();
+
+                    ArrayList<Seat> secondClass = new ArrayList<>();
+                    ArrayList<Seat> firstClass = new ArrayList<>();
+                    for(Seat seat : seats)
+                        if(seat.getType().equals("2nd class"))
+                            secondClass.add(seat);
+                        else
+                            firstClass.add(seat);
+
+                    firstClass.sort(Seat.seatComparator);
+                    secondClass.sort(Seat.seatComparator);
+
+                    map.put("1st class", firstClass);
+                    map.put("2nd class", secondClass);
+
+                    return map;
+                }catch (Exception e){
+                    return null;
+                }
+            }
+        } catch (Exception e) {
+            // Handle exceptions appropriately
+            e.printStackTrace();
             return null;
         }
     }
@@ -389,7 +489,6 @@ public class TrainRestController {
         }
     }
 
-    // This function seems kinda inefficient
     @GetMapping(path = "/getBestCustomers")
     public Collection<String> getBestCustomer(){
         List<String> roles = List.of(SecurityFilter.getUser().getRoles());
