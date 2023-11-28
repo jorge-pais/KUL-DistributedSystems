@@ -11,14 +11,13 @@ import com.google.api.core.ApiFuture;
 import com.google.api.gax.core.CredentialsProvider;
 import com.google.api.gax.core.NoCredentialsProvider;
 import com.google.api.gax.grpc.GrpcTransportChannel;
-import com.google.api.gax.rpc.FixedTransportChannelProvider;
-import com.google.api.gax.rpc.NotFoundException;
-import com.google.api.gax.rpc.TransportChannelProvider;
+import com.google.api.gax.rpc.*;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.*;
 import com.google.cloud.pubsub.v1.*;
 import com.google.protobuf.Api;
 import com.google.pubsub.v1.*;
+import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -34,11 +33,13 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import javax.annotation.Resource;
 import java.io.*;
 import java.net.URL;
 import java.nio.file.Files;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @EnableHypermediaSupport(type = EnableHypermediaSupport.HypermediaType.HAL)
 @SpringBootApplication
@@ -64,7 +65,7 @@ public class Application {
         LocalTrainsWrapper trainsWrapper = null;
         try {
             trainsWrapper = mapper.readValue(data, LocalTrainsWrapper.class);
-            System.out.println("Java object after parsing JSON using Jackson");
+            //System.out.println("Java object after parsing JSON using Jackson");
             System.out.println(trainsWrapper);
             System.out.println(trainsWrapper.getTrains());
 
@@ -77,11 +78,11 @@ public class Application {
 
         for (LocalTrain localTrain : trainsWrapper.getTrains()) {
 
-            System.out.println("Train Name:" + localTrain.getName());
+            //System.out.println("Train Name:" + localTrain.getName());
 
             // Convert LocalTrain Object to Train Object
             Train train = new Train(localTrain);
-            System.out.println("Train company:" + train.getTrainCompany());
+            //System.out.println("Train company:" + train.getTrainCompany());
 
             // Check if the train is already stored in Firestore database
             Query query = db.collection("storedTrains")
@@ -114,7 +115,7 @@ public class Application {
                         Seat seat = new Seat(localSeat, train);
 
                         // Put the seat and respective data on the database
-                        System.out.println("Initializing Local Seats data on Firestore!");
+                        //System.out.println("Initializing Local Seats data on Firestore!");
 
                         Map<String, Object> seatData = seat.toMap();  // Use the toMap method
 
@@ -132,16 +133,15 @@ public class Application {
 
                         String seatTime = localSeat.getTime().toString();
                         String seatIdentifier = localTrain.getName() + seatTime;
-                        System.out.println(seatTime);
 
                         // Check if the seat time has already been stored for the same train
                         if (storedSeatTimes.contains(seatIdentifier)) {
-                            System.out.println("Train time has already been stored! Skipping...");
+                            //System.out.println("Train time has already been stored! Skipping...");
                             continue;
                         }
 
                         // If the seat time is not found, then put the time on the database
-                        System.out.println("Storing " + localTrain.getName() + "time in Firestore!");
+                        //System.out.println("Storing " + localTrain.getName() + "time in Firestore!");
 
                         // Store the seat time in the storedSeatTimes set
                         storedSeatTimes.add(seatIdentifier);
@@ -216,15 +216,16 @@ public class Application {
         return firewall;
     }
 
+    ManagedChannel publisherChannel = null;
     @Bean
     public Publisher publisher() throws IOException{
         TopicName topicName = TopicName.of(projectId(), "confirmQuotes");
         TransportChannelProvider channelProvider = null;
         if(!Application.isProduction()) {
+
+            publisherChannel = ManagedChannelBuilder.forTarget("localhost:8083").usePlaintext().build();
             channelProvider = FixedTransportChannelProvider.create(
-                    GrpcTransportChannel.create(
-                            ManagedChannelBuilder.forTarget("localhost:8083")
-                                    .usePlaintext().build()));
+                    GrpcTransportChannel.create(publisherChannel));
 
             CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
 
@@ -233,14 +234,27 @@ public class Application {
                             .setTransportChannelProvider(channelProvider)
                             .setCredentialsProvider(credentialsProvider)
                             .build())) {
-                topicAdminClient.createTopic(topicName);
+
+                // Check if the topic already exists
+                try {
+                    Topic topic = topicAdminClient.getTopic(topicName);
+                    System.out.println("Topic already exists!");
+                } catch (ApiException e) {
+                    if (e.getStatusCode().getCode() == StatusCode.Code.NOT_FOUND) {
+                        // Topic does not exist, create it
+                        topicAdminClient.createTopic(topicName);
+                        System.out.println("Topic created!");
+                    } else {
+                        // Other ApiException, print error and stack trace
+                        System.out.println("Either an error occurred or topic already exists!");
+                        e.printStackTrace();
+                    }
+                }
+
                 return Publisher.newBuilder(topicName)
                         .setChannelProvider(channelProvider)
                         .setCredentialsProvider(credentialsProvider)
                         .build();
-            }catch (Exception e){
-                System.out.println("Either an error occurred or topic already exists!");
-                //e.printStackTrace();
             }
         }
 
@@ -249,6 +263,7 @@ public class Application {
                 .build();
     }
 
+    ManagedChannel subscriberChannel = null;
     @Bean
     public void subscriber() throws IOException{
 
@@ -257,10 +272,11 @@ public class Application {
         PushConfig pushConfig;
         if(!Application.isProduction()) { // Running in firebase emulator suite!
 
+            subscriberChannel = ManagedChannelBuilder.forTarget("localhost:8083")
+                    .usePlaintext().build();
+
             TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(
-                    GrpcTransportChannel.create(
-                            ManagedChannelBuilder.forTarget("localhost:8083")
-                                    .usePlaintext().build()));
+                    GrpcTransportChannel.create(subscriberChannel));
 
             CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
 
@@ -298,10 +314,36 @@ public class Application {
             subscriptionAdminSettings = SubscriptionAdminSettings.newBuilder().build();
             pushConfig = PushConfig.newBuilder()
                     .setPushEndpoint("https://distributedsystems-tmaiajpais.ew.r.appspot.com/push/confirmQuoteSub")
-                    //.setNoWrapper(noWrapper)
                     .build();
         }
     }
+
+    @PreDestroy
+    public void preDestroy() {
+        assert publisherChannel != null;
+        assert subscriberChannel != null;
+        // shutdown your channels here
+        shutdownManagedChannel(publisherChannel);
+        shutdownManagedChannel(subscriberChannel);
+    }
+
+    private void shutdownManagedChannel(ManagedChannel channel) {
+        if (channel != null && !channel.isShutdown()) {
+            channel.shutdown();
+            try {
+                if (!channel.awaitTermination(5, TimeUnit.SECONDS)) {
+                    channel.shutdownNow();
+                    if (!channel.awaitTermination(5, TimeUnit.SECONDS)) {
+                        System.err.println("Channel did not terminate");
+                    }
+                }
+            } catch (InterruptedException e) {
+                channel.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
 
     @Bean
     public static Firestore db(){
