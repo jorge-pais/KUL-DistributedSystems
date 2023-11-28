@@ -6,19 +6,10 @@ import java.util.UUID;
 
 public class LocalTrain {
 
-    private String trainCompany;
     private String name;
     private String location;
     private String image;
     private Collection<LocalSeat> seats;
-
-    public String getTrainCompany() {
-        return trainCompany;
-    }
-
-    public void setTrainCompany(String trainCompany) {
-        this.trainCompany = trainCompany;
-    }
 
     public String getName() {
         return name;
