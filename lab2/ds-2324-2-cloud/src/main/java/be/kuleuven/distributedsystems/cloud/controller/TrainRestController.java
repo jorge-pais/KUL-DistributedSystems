@@ -141,7 +141,7 @@ public class TrainRestController {
         // Check if the train is already stored in Firestore database
         DocumentReference trainRef = db.collection("storedTrains").document(trainId);
 
-        System.out.println(trainId);
+        //System.out.println(trainId);
 
         try {
             DocumentSnapshot document = trainRef.get().get();
@@ -245,11 +245,9 @@ public class TrainRestController {
                 .whereEqualTo("trainId", trainId)
                 .whereEqualTo("time", time);
 
-        System.out.println("HERE!!");
-
-        System.out.println(trainId);
-        System.out.println(trainCompany);
-        System.out.println(time);
+        //System.out.println(trainId);
+        //System.out.println(trainCompany);
+        //System.out.println(time);
 
         try {
             ApiFuture<QuerySnapshot> querySnapshotFuture = query.get();
@@ -258,7 +256,6 @@ public class TrainRestController {
             System.out.println(querySnapshot.isEmpty());
 
             if (!querySnapshot.isEmpty()) {
-                System.out.println("HERE 2!!");
                 // Seats found in Firestore, process and return them
                 // Process and return seats found in Firestore
                 Collection<Seat> seats = new ArrayList<>();
@@ -287,7 +284,6 @@ public class TrainRestController {
 
                 return map;
             } else {
-                System.out.println("HERE 3!!");
                 // Seats not found in Firestore, make an external API call
                 Mono<ResponseEntity<CollectionModel<Seat>>> responseEntityMono = webClientBuilder
                         .baseUrl("https://" + trainCompany)
@@ -493,7 +489,6 @@ public class TrainRestController {
         }
     }
 
-    // This function seems kinda inefficient
     @GetMapping(path = "/getBestCustomers")
     public Collection<String> getBestCustomer(){
         List<String> roles = List.of(SecurityFilter.getUser().getRoles());
