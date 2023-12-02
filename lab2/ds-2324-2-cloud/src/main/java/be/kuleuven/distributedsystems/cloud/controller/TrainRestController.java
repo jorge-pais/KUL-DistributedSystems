@@ -239,24 +239,19 @@ public class TrainRestController {
     @GetMapping(path = "/getAvailableSeats")
     public Map<String, Collection<Seat>> getAvailableSeats(@RequestParam String trainCompany, @RequestParam String trainId, @RequestParam String time)  {
 
-        // Check if the seats are already stored in Firestore database
-        Query query = db.collection("storedSeats")
-                .whereEqualTo("trainCompany", trainCompany)
-                .whereEqualTo("trainId", trainId)
-                .whereEqualTo("time", time);
 
-        //System.out.println(trainId);
-        //System.out.println(trainCompany);
-        //System.out.println(time);
 
         try {
-            ApiFuture<QuerySnapshot> querySnapshotFuture = query.get();
-            QuerySnapshot querySnapshot = querySnapshotFuture.get();
+            if (trainCompany.equals("InternalTrains")) {
+                Query query = db.collection("storedSeats")
+                        .whereEqualTo("trainCompany", trainCompany)
+                        .whereEqualTo("trainId", trainId)
+                        .whereEqualTo("time", time);
+                ApiFuture<QuerySnapshot> querySnapshotFuture = query.get();
+                QuerySnapshot querySnapshot = querySnapshotFuture.get();
 
-            System.out.println(querySnapshot.isEmpty());
+                //System.out.println(querySnapshot.isEmpty());
 
-            if (!querySnapshot.isEmpty()) {
-                // Seats found in Firestore, process and return them
                 // Process and return seats found in Firestore
                 Collection<Seat> seats = new ArrayList<>();
 
