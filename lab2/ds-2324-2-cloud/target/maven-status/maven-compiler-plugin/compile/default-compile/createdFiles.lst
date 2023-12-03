@@ -3,6 +3,7 @@ be/kuleuven/distributedsystems/cloud/entities/PubsubContainer$PubsubMessageWrapp
 be/kuleuven/distributedsystems/cloud/controller/ConfirmQuotesAsync.class
 be/kuleuven/distributedsystems/cloud/entities/LocalTrainsWrapper.class
 be/kuleuven/distributedsystems/cloud/controller/FirebaseWrapper.class
+be/kuleuven/distributedsystems/cloud/entities/SeatDBWrapper.class
 be/kuleuven/distributedsystems/cloud/entities/PubsubContainer.class
 be/kuleuven/distributedsystems/cloud/controller/ConfirmQuotesAsync$1.class
 be/kuleuven/distributedsystems/cloud/entities/LocalTrain$LocalSeat.class

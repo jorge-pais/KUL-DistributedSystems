@@ -32,7 +32,17 @@ public class Seat {
         this.price = price;
     }
 
-    public Seat(LocalTrain.LocalSeat localSeat, Train train){
+    public Seat(SeatDBWrapper seatDBWrapper){
+        this.trainCompany = seatDBWrapper.getTrainCompany();
+        this.trainId = seatDBWrapper.getTrainId();
+        this.seatId = seatDBWrapper.getSeatId();
+        this.time = seatDBWrapper.getTime();
+        this.type = seatDBWrapper.getType();
+        this.name = seatDBWrapper.getName();
+        this.price = seatDBWrapper.getPrice();
+    }
+
+    /*public Seat(LocalTrain.LocalSeat localSeat, Train train){
         this.time = LocalDateTime.parse(localSeat.getTime());
         this.name = localSeat.getName();
         this.seatId = UUID.randomUUID();
@@ -40,7 +50,7 @@ public class Seat {
         this.type = localSeat.getType();
         this.trainCompany = train.getTrainCompany();
         this.trainId = train.getTrainId();
-    }
+    }*/
 
     public String getTrainCompany() {
         return trainCompany;

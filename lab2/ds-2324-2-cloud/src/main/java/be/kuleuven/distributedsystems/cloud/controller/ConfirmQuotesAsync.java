@@ -2,10 +2,7 @@ package be.kuleuven.distributedsystems.cloud.controller;
 
 import be.kuleuven.distributedsystems.cloud.Application;
 import be.kuleuven.distributedsystems.cloud.auth.SecurityFilter;
-import be.kuleuven.distributedsystems.cloud.entities.Booking;
-import be.kuleuven.distributedsystems.cloud.entities.PubsubContainer;
-import be.kuleuven.distributedsystems.cloud.entities.Quote;
-import be.kuleuven.distributedsystems.cloud.entities.Ticket;
+import be.kuleuven.distributedsystems.cloud.entities.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.parameters.P;
+import org.springframework.security.core.userdetails.memory.UserAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,6 +36,8 @@ import java.io.ObjectInputStream;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/push")
@@ -47,166 +48,194 @@ public class ConfirmQuotesAsync {
     @Resource(name = "db")
     private Firestore db;
 
+    private final int MAX_TRIES = 25; // coded hard as fuck
+
     private final String API_KEY = Application.getApiKey();
 
-    // TODO ASK ABOUT THIS
     @PostMapping("/confirmQuoteSub")
-    public ResponseEntity<?> processQuotes(@RequestBody String payload) {
-        try {
-            //System.out.println("Received payload: " + payload);
-            // Process the payload here
+    public ResponseEntity<?> processQuotes(@RequestBody String payload){
+        // Process the pubsub message and get the payload
+
+        Collection<Quote> quotes; String customer;
+        try{
             ObjectMapper mapper = new ObjectMapper();
             PubsubContainer pubsub = mapper.readValue(payload, PubsubContainer.class);
 
             byte[] data = Base64.decode(pubsub.getMessage().getData());
-            String customer = pubsub.getMessage().getAttributes().get("user");
+            quotes = mapper.readValue(data, new TypeReference<Collection<Quote>>(){});
+            customer = pubsub.getMessage().getAttributes().get("user");
+        }
+        catch (Exception e){
+            System.out.println("[ConfirmQuotes]: Error reading/decoding pubsubmessage!");
 
-            ObjectMapper objectMapper = new ObjectMapper();
-            Collection<Quote> quotes = objectMapper.readValue(data, new TypeReference<Collection<Quote>>(){});
-
-            UUID bookingReference = UUID.randomUUID();
-
-            List<Ticket> tickets = new ArrayList<>();
-            List<Map<String, Object>> ticketMaps = new ArrayList<>();
-
-            /// THESE ARE THE REQUESTS THAT ARE MADE TO THE TRAIN SERVERS
-            for(Quote quote: quotes){
-                Ticket ticket = null;
-
-                try {
-                    if (quote.getTrainCompany().equals("InternalTrains")) {
-                        ticket = new Ticket("InternalTrains", quote.getTrainId(), quote.getSeatId(), UUID.randomUUID(), customer, bookingReference.toString());
-
-                        // Check if the seat/ticket is already taken
-                        DocumentReference docRef= db.collection("takenSeats").document(quote.getSeatId().toString());
-                        Ticket finalTicket = ticket;
-                        db.runTransaction(transaction -> {
-                            DocumentSnapshot snapshot = transaction.get(docRef).get();
-                            if(snapshot.exists())
-                                throw new Exception();
-                            transaction.create(docRef, finalTicket.toMap());
-                            return null;
-                        });
-
-                        tickets.add(ticket);
-                        ticketMaps.add(ticket.toMap());
-                    } else {
-                        Mono<ResponseEntity<Ticket>> responseMono = webClientBuilder // PUT request
-                                .baseUrl("https://" + quote.getTrainCompany())
-                                .build()
-                                .put()
-                                .uri(uriBuilder -> uriBuilder
-                                        .pathSegment("trains", quote.getTrainId().toString(), "seats", quote.getSeatId().toString(), "ticket")
-                                        .queryParam("key", API_KEY)
-                                        .queryParam("customer", customer)
-                                        .queryParam("bookingReference", bookingReference.toString())
-                                        .build())
-                                .retrieve()
-                                .toEntity(Ticket.class);
-
-                        ResponseEntity<Ticket> response = responseMono.block();
-
-                        HttpStatusCode httpStatus = response.getStatusCode();
-                        if (httpStatus.is2xxSuccessful()) {
-                            ticket = response.getBody();
-
-                            tickets.add(ticket);
-                            ticketMaps.add(ticket.toMap());
-                        } else {
-                            throw new Exception();
-                        }
-                    }
-                }
-                // Couldn't PUT all tickets now attempt to remove all tickets
-                catch (Exception e) {
-                    System.out.println("Some error while getting the tickets");
-                    for (Ticket ticket_ : tickets) { // Should probably do a while loop that checks for a successful remove
-                        HttpStatusCode httpStatus = HttpStatus.NOT_FOUND;
-
-                        if(ticket_.getTrainCompany().equals("InternalTrains")){
-                            DocumentReference docRef= db.collection("takenSeats").document(ticket_.getSeatId().toString());
-                            db.runTransaction(transaction -> {
-                                DocumentSnapshot snapshot = transaction.get(docRef).get();
-                                if(snapshot.exists())
-                                    transaction.delete(docRef);
-                                return null;
-                            });
-
-                            continue;
-                        }
-
-                        // this is in case unreliabletrains is not responding to a remove operation,
-                        // in which case we definitely want to spam the remove requests.
-                        for (int i = 0; i < 25 && !httpStatus.is2xxSuccessful(); i++) {
-                            try {
-                                Mono<ResponseEntity<String>> responseEntity = webClientBuilder.baseUrl("https://" + ticket_.getTrainCompany())
-                                        .build()
-                                        .delete()
-                                        .uri(uriBuilder -> uriBuilder
-                                                .pathSegment("trains", ticket_.getTrainId().toString(),
-                                                        "seats", ticket_.getSeatId().toString(), "ticket", ticket_.getTicketId().toString())
-                                                .queryParam("key", API_KEY)
-                                                .build())
-                                        .retrieve()
-                                        .toEntity(String.class); // This should return 204
-
-                                httpStatus = responseEntity.block().getStatusCode();
-                            } catch (Exception ee) {
-                                httpStatus = HttpStatus.NOT_FOUND;
-                            }
-                        }
-                    }
-                    return ResponseEntity.status(500).build();
-                }
-            }
-
-            //// We got the tickets, now put them on the database
-            DocumentReference docRef = db.collection("allbookings").document(customer)
-                    .collection("bookings").document(bookingReference.toString());
-
-            // DocumentReference docRef = db.collection("allbookings").document(customer);
-            // Add document data  with id "allbookings" using a hashmap
-            Map<String, Object> bookingData = new HashMap<>();
-            bookingData.put("id", bookingReference.toString());
-            bookingData.put("time", LocalDateTime.now().toString());
-            bookingData.put("tickets", ticketMaps);
-            bookingData.put("customer", customer);
-
-            ApiFuture<WriteResult> future = docRef.set(bookingData);
-            try {
-                future.get(); // Wait until operation is completed.
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-
-            DocumentReference customerDocRef = db.collection("allbookings").document(customer);
-
-            // Check if the document exists
-            ApiFuture<DocumentSnapshot> customerFuture = customerDocRef.get();
-            DocumentSnapshot customerDocument = customerFuture.get();
-
-            if (customerDocument.exists()) {
-                // If the document exists, get the current totalTickets value
-                int totalTickets = customerDocument.getLong("totalTickets").intValue();
-
-                // Increment the totalTickets value by the number of tickets bought in the current transaction
-                totalTickets += tickets.size();
-
-                // Update the document with the new totalTickets value
-                customerDocRef.update("totalTickets", totalTickets);
-            }
-            else {
-                // If the document doesn't exist, create a new one with totalTickets set to the number of tickets bought
-                customerDocRef.set(Map.of("totalTickets", tickets.size()));
-            }
-
-        } catch (Exception e_) {
-            // In case of an error, log it and return an appropriate response
-            System.err.println("Error processing the message: " + e_.getMessage());
             return ResponseEntity.status(500).build();
         }
+
+        // Generate booking reference
+        UUID bookingReference = UUID.randomUUID();
+
+        ArrayList<Ticket> tickets = new ArrayList<>();
+
+        // First try to read all tickets from external provider, we skip all internal trains
+        for(Quote quote: quotes){
+            if(quote.getTrainCompany().equals("InternalTrains")) continue;
+            Ticket ticket;
+
+            // Try to get the ticket!
+            Mono<ResponseEntity<Ticket>> responseMono = webClientBuilder
+                    .baseUrl("https://" + quote.getTrainCompany())
+                    .build()
+                    .put()
+                    .uri(uriBuilder -> uriBuilder
+                            .pathSegment("trains", quote.getTrainId().toString(), "seats", quote.getTrainId().toString(), "ticket")
+                            .queryParam("key", API_KEY)
+                            .queryParam("customer", customer)
+                            .queryParam("bookingReference", bookingReference)
+                            .build())
+                    .retrieve()
+                    .toEntity(Ticket.class);
+
+            HttpStatusCode httpStatusCode;
+            try {
+                ResponseEntity<Ticket> response = responseMono.block();
+                assert response != null;
+
+                httpStatusCode = response.getStatusCode();
+                if (httpStatusCode.is2xxSuccessful()) {
+                    ticket = response.getBody();
+                    tickets.add(ticket);
+                }
+            }
+            catch (Exception e){
+                System.out.println("[Confirm Quotes] Error occured while getting external tickets! Removing!");
+                removeExternal(tickets);
+
+                // SEND THE BOOKING UNSUCCESSFUL EMAIL HERE!
+                return ResponseEntity.ok().build();
+            }
+        }
+
+        // Then create all the tickets for the local trains within the firestore database
+        for(Quote quote: quotes){
+            Ticket ticket;
+            if(!quote.getTrainCompany().equals("InternalTrains")) continue;
+            //DocumentReference ticketRef = db.collection("takenSeats").document();
+            ticket = new Ticket("InternalTrains",
+                    quote.getTrainId(),
+                    quote.getSeatId(),
+                    UUID.randomUUID(),
+                    customer,
+                    bookingReference.toString());
+            try{
+                //DocumentReference takenRef = db.collection("takenSeats").document(quote.getSeatId().toString());
+                DocumentReference seatRef = db.collection("storedSeats").document(quote.getSeatId().toString());
+
+                /* Check if unavailable
+                * i srly tried to make this with only the transaction part
+                * mas fdss caputa de merda isto ser tudo assincrono não para fazer nada de jeito*/
+                if(!seatRef.get().get().get("available", boolean.class))
+                    throw new RuntimeException();
+
+                db.runTransaction(transaction -> {
+                    DocumentSnapshot seatSnap = transaction.get(seatRef).get();
+                    transaction.update(seatRef, "available", false);
+                    return null;
+                });
+            }
+            catch(Exception e){
+                System.out.println("[Confirm Quotes] Error occured while getting internal tickets! Removing!");
+                removeExternal(tickets);
+                removeInternal(tickets);
+
+                // SEND THE BOOKING UNSUCCESSFUL EMAIL HERE!
+                return ResponseEntity.ok().build();
+            }
+
+            tickets.add(ticket);
+        }
+
+        // Now place the booking!
+        DocumentReference docRef = db.collection("allbookings")
+                .document(customer)
+                .collection("bookings")
+                .document(bookingReference.toString());
+
+        // Map of the tickets
+        List<Map<String, Object>> ticketMaps = new ArrayList<>();
+        for (Ticket ticket : tickets) ticketMaps.add(ticket.toMap());
+
+        // Create the booking
+        Map<String, Object> bookingData = new HashMap<>();
+        bookingData.put("id", bookingReference.toString());
+        bookingData.put("time", LocalDateTime.now().toString());
+        bookingData.put("tickets", ticketMaps);
+        bookingData.put("customer", customer);
+
+        ApiFuture<WriteResult> future = docRef.set(bookingData);
+        try{
+            future.get();
+        }catch(Exception e){
+            throw new RuntimeException(e);
+        }
+
+        // Great success!
         return ResponseEntity.ok().build();
     }
+
+    /*These could be remote workers whose job is just to remove tickets
+    * but idk if calling web workers from other webworkers should be done
+    * or not. also they'll be making a ton of async requests*/
+    public void removeExternal(Collection<Ticket> tickets){
+        String customer;
+
+        for(Ticket ticket : tickets) {
+            if(ticket.getTrainCompany().equals("InternalTrains")) continue;
+            // Dummy 4xx code, not 404
+            // 404 is returned when trying to delete an already non-existent ticket
+            HttpStatusCode httpStatusCode = HttpStatus.BAD_REQUEST;
+            try {
+                int i;
+                for (i = 0; i < MAX_TRIES && (!httpStatusCode.is2xxSuccessful() || httpStatusCode != HttpStatus.NOT_FOUND); i++) {
+                    Mono<ResponseEntity<String>> responseEntity = webClientBuilder.baseUrl("https://" + ticket.getTrainCompany())
+                            .build()
+                            .delete()
+                            .uri(uriBuilder -> uriBuilder
+                                    .pathSegment("trains", ticket.getTrainId().toString(),
+                                            "seats", ticket.getSeatId().toString(), "ticket", ticket.getTicketId().toString())
+                                    .queryParam("key", API_KEY)
+                                    .build())
+                            .retrieve()
+                            .toEntity(String.class);
+
+                    httpStatusCode = responseEntity.block().getStatusCode();
+                }
+            }
+            catch (Exception ee){
+                continue;
+            }
+        }
+    }
+
+    public void removeInternal(Collection<Ticket> tickets){
+
+        for(Ticket ticket: tickets){
+            if(!ticket.getTrainCompany().equals("InternalTrains")) continue;
+
+            DocumentReference takenRef = db.collection("takenSeats").document(ticket.getSeatId().toString());
+            DocumentReference seatRef = db.collection("storedSeats").document(ticket.getSeatId().toString());
+            db.runTransaction(transaction -> {
+                DocumentSnapshot takenSnap = transaction.get(takenRef).get();
+                DocumentSnapshot seatSnap = transaction.get(seatRef).get();
+                if(takenSnap.exists())
+                    transaction.delete(takenRef);
+                transaction.update(seatRef, "available", true);
+                return null;
+            });
+        }
+
+    }
 }
+
+
 
 

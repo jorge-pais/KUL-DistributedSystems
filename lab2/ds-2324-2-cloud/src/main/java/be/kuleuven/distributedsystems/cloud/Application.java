@@ -2,10 +2,7 @@ package be.kuleuven.distributedsystems.cloud;
 
 import be.kuleuven.distributedsystems.cloud.controller.ConfirmQuotesAsync;
 import be.kuleuven.distributedsystems.cloud.controller.TrainRestController;
-import be.kuleuven.distributedsystems.cloud.entities.LocalTrain;
-import be.kuleuven.distributedsystems.cloud.entities.LocalTrainsWrapper;
-import be.kuleuven.distributedsystems.cloud.entities.Seat;
-import be.kuleuven.distributedsystems.cloud.entities.Train;
+import be.kuleuven.distributedsystems.cloud.entities.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.core.ApiFuture;
 import com.google.api.gax.core.CredentialsProvider;
@@ -112,7 +109,7 @@ public class Application {
                         // ------------ Store Seats -------------- //
 
                         // Convert LocalSeat Object to Seat Object
-                        Seat seat = new Seat(localSeat, train);
+                        SeatDBWrapper seat = new SeatDBWrapper(localSeat, train);
 
                         // Put the seat and respective data on the database
                         //System.out.println("Initializing Local Seats data on Firestore!");
