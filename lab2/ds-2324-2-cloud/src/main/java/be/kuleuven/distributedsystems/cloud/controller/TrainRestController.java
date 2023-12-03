@@ -192,7 +192,7 @@ public class TrainRestController {
         Query query = db.collection("storedSeatTimes")
                 .whereEqualTo("trainCompany", trainCompany).whereEqualTo("trainId", trainId);
 
-        System.out.println(trainCompany);
+        //System.out.println(trainCompany);
 
         try {
             QuerySnapshot querySnapshot = query.get().get();
@@ -239,14 +239,14 @@ public class TrainRestController {
     @GetMapping(path = "/getAvailableSeats")
     public Map<String, Collection<Seat>> getAvailableSeats(@RequestParam String trainCompany, @RequestParam String trainId, @RequestParam String time)  {
 
-
-
         try {
             if (trainCompany.equals("InternalTrains")) {
                 Query query = db.collection("storedSeats")
                         .whereEqualTo("trainCompany", trainCompany)
                         .whereEqualTo("trainId", trainId)
-                        .whereEqualTo("time", time);
+                        .whereEqualTo("time", time)
+                        .whereEqualTo("available", true);
+
                 ApiFuture<QuerySnapshot> querySnapshotFuture = query.get();
                 QuerySnapshot querySnapshot = querySnapshotFuture.get();
 
@@ -256,8 +256,8 @@ public class TrainRestController {
                 Collection<Seat> seats = new ArrayList<>();
 
                 for (QueryDocumentSnapshot document : querySnapshot) {
-                    Seat seat = document.toObject(Seat.class);
-                    System.out.println(seat.getTime());
+                    Seat seat = new Seat(document.toObject(SeatDBWrapper.class));
+                    //System.out.println(seat.getTime());
                     seats.add(seat);
                 }
                 // Group seats by class
@@ -320,7 +320,8 @@ public class TrainRestController {
                     return null;
                 }
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             // Handle exceptions appropriately
             e.printStackTrace();
             return null;
@@ -329,31 +330,6 @@ public class TrainRestController {
 
     @GetMapping(path = "/getSeat")
     public Seat getSeat(@RequestParam String trainId, @RequestParam String trainCompany, @RequestParam String seatId){
-        // OLD IMPLEMENTATION
-        /*Seat seat = allSeats.get(seatId);
-        if(seat == null) {
-            Mono<ResponseEntity<Seat>> responseEntityMono = webClientBuilder
-                    .baseUrl("https://" + trainCompany)
-                    .build()
-                    .get()
-                    .uri(uriBuilder -> uriBuilder
-                            .pathSegment("trains", trainId, "seats", seatId)
-                            .queryParam("key", API_KEY)
-                            .build())
-                    .retrieve()
-                    .toEntity(Seat.class);
-            try{
-                ResponseEntity<Seat> response = responseEntityMono.block();
-                HttpStatusCode statusCode = response.getStatusCode();
-                if(statusCode.is2xxSuccessful()) {
-                    seat = response.getBody();
-                    allSeats.put(seatId, seat);
-                }
-            }catch (Exception e){
-                return null;
-            }
-        }
-        return seat;*/
 
         // Check if the seat is already stored in Firestore database
         DocumentReference seatRef = db.collection("storedSeats").document(seatId);
@@ -365,7 +341,8 @@ public class TrainRestController {
 
             if (document.exists()) {
                 // If the seat is found in Firestore, return it
-                return document.toObject(Seat.class);
+                SeatDBWrapper wrappedSeat = document.toObject(SeatDBWrapper.class);
+                return new Seat(wrappedSeat);
             } else {
                 // If the seat is not found in Firestore, make the HTTP request to the Train Company
                 try {
@@ -382,7 +359,7 @@ public class TrainRestController {
                             .block();
 
                     // Store the seat in Firestore
-                    Map<String, Object> seatData = seat.toMap();  // Use the toMap method
+                    Map<String, Object> seatData = (new SeatDBWrapper(seat, true)).toMap();  // Use the toMap method
 
                     ApiFuture<WriteResult> storeSeatFuture = seatRef.set(seatData);
 
