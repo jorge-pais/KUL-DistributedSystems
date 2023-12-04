@@ -369,4 +369,8 @@ public class Application {
             return null;
         }
     }
+
+    public static String getSendgridApiKey(){
+        return "API_KEY";
+    }
 }

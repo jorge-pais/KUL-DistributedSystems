@@ -87,7 +87,7 @@ public class ConfirmQuotesAsync {
                     .build()
                     .put()
                     .uri(uriBuilder -> uriBuilder
-                            .pathSegment("trains", quote.getTrainId().toString(), "seats", quote.getTrainId().toString(), "ticket")
+                            .pathSegment("trains", quote.getTrainId().toString(), "seats", quote.getSeatId().toString(), "ticket")
                             .queryParam("key", API_KEY)
                             .queryParam("customer", customer)
                             .queryParam("bookingReference", bookingReference)
@@ -98,7 +98,7 @@ public class ConfirmQuotesAsync {
             HttpStatusCode httpStatusCode;
             try {
                 ResponseEntity<Ticket> response = responseMono.block();
-                assert response != null;
+                //assert response != null;
 
                 httpStatusCode = response.getStatusCode();
                 if (httpStatusCode.is2xxSuccessful()) {
@@ -107,6 +107,7 @@ public class ConfirmQuotesAsync {
                 }
             }
             catch (Exception e){
+                e.printStackTrace();
                 System.out.println("[Confirm Quotes] Error occured while getting external tickets! Removing!");
                 removeExternal(tickets);
 
@@ -174,11 +175,30 @@ public class ConfirmQuotesAsync {
         ApiFuture<WriteResult> future = docRef.set(bookingData);
         try{
             future.get();
+            DocumentReference customerDocRef = db.collection("allbookings").document(customer);
+
+            // Check if the document exists
+            ApiFuture<DocumentSnapshot> customerFuture = customerDocRef.get();
+            DocumentSnapshot customerDocument = customerFuture.get();
+
+            if (customerDocument.exists()) {
+                int totalTickets = customerDocument.getLong("totalTickets").intValue();
+                // Increment the totalTickets value by the number of tickets bought in the current transaction
+                totalTickets += tickets.size();
+                customerDocRef.update("totalTickets", totalTickets);
+            }
+            else {
+                customerDocRef.set(Map.of("totalTickets", tickets.size()));
+            }
         }catch(Exception e){
             throw new RuntimeException(e);
         }
 
         // Great success!
+        // Send an email confirming the
+
+        //EmailService.sendBookingConfirmation(customer, true);
+
         return ResponseEntity.ok().build();
     }
 
