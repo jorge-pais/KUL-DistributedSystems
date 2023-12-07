@@ -51,9 +51,14 @@ public class TrainRestController {
 
     private final String API_KEY = Application.getApiKey();
 
-    // Pass this to database perhaps, URLs without https://
+    // For now this is hard-coded, eventually this could be passed to the database
     private final String [] trainCompanies = {"reliabletrains.com", "unreliabletrains.com"};
 
+    /**
+     * Retrieves all trains from external train companies and internal Firestore database.
+     * @return Collection<Train> A collection of Train objects.
+     * @throws NullPointerException if an error occurs during data retrieval.
+     */
     @GetMapping(path = "/getTrains")
     public Collection<Train> getAllTrains() throws NullPointerException{
 
@@ -61,10 +66,12 @@ public class TrainRestController {
 
         for (String i: trainCompanies) {
             try {
-                trains.addAll(getAllTrainsFrom(i));
+                Collection<Train> results = getAllTrainsFrom(i);
+
+                trains.addAll(results);
             } catch (Exception e) {
-                //System.out.println("Couldn't GET trains from " + i);
-                return null;
+                System.out.println("Couldn't GET trains from " + i);
+                //return null;
             }
         }
 
@@ -90,7 +97,12 @@ public class TrainRestController {
         return trains;
     }
 
-    // AUX function for getAllTrains()
+    /**
+     * Auxiliary method to get all trains from a specific train company.
+     * @param trainCompany The name of the train company.
+     * @return Collection<Train> A collection of Train objects from the specified company.
+     * @throws NullPointerException if an error occurs during data retrieval.
+     */
     private Collection<Train> getAllTrainsFrom(String trainCompany) throws NullPointerException{
         return webClientBuilder
                 .baseUrl("https://" + trainCompany)
@@ -106,6 +118,13 @@ public class TrainRestController {
                 .getContent();
     }
 
+    /**
+     * Retrieves a specific train by its ID and company, either from Firestore or an external API.
+     * @param trainId The ID of the train.
+     * @param trainCompany The company of the train.
+     * @return Train The requested train object.
+     * @throws RuntimeException for various errors, including API and database access issues.
+     */
     @GetMapping(path = "/getTrain")
     public Train getTrain(@RequestParam String trainId, @RequestParam String trainCompany){
         // OLD implementation
@@ -185,6 +204,13 @@ public class TrainRestController {
         }
     }
 
+    /**
+     * Gets the schedule times for a specific train.
+     * @param trainCompany The company of the train.
+     * @param trainId The ID of the train.
+     * @return Collection<String> A collection of times for the train.
+     * @throws NullPointerException if an error occurs during data retrieval.
+     */
     @GetMapping(path = "/getTrainTimes")
     public Collection<String> getTrainTimes(@RequestParam String trainCompany, @RequestParam String trainId) throws NullPointerException{
 
@@ -236,6 +262,14 @@ public class TrainRestController {
         }
     }
 
+    /**
+     * Retrieves available seats for a specific train at a given time.
+     * @param trainCompany The company of the train.
+     * @param trainId The ID of the train.
+     * @param time The time for which to retrieve seats.
+     * @return Map<String, Collection<Seat>> A map categorizing seats into classes.
+     * @throws Exception for various exceptions including API and database access issues.
+     */
     @GetMapping(path = "/getAvailableSeats")
     public Map<String, Collection<Seat>> getAvailableSeats(@RequestParam String trainCompany, @RequestParam String trainId, @RequestParam String time)  {
 
@@ -328,6 +362,14 @@ public class TrainRestController {
         }
     }
 
+    /**
+     * Retrieves a specific seat from Firestore or an external API.
+     * @param trainId The ID of the train.
+     * @param trainCompany The company of the train.
+     * @param seatId The ID of the seat.
+     * @return Seat The requested seat object.
+     * @throws RuntimeException for various errors, including API and database access issues.
+     */
     @GetMapping(path = "/getSeat")
     public Seat getSeat(@RequestParam String trainId, @RequestParam String trainCompany, @RequestParam String seatId){
 
@@ -379,6 +421,12 @@ public class TrainRestController {
         }
     }
 
+    /**
+     * Confirms quotes for a customer and sends data to a publisher.
+     * @param quotes A collection of quotes to be confirmed.
+     * @return ResponseEntity<?> A response entity indicating the outcome.
+     * @throws ExecutionException, InterruptedException for asynchronous operation failures.
+     */
     @PostMapping(path = "/confirmQuotes")
     public ResponseEntity<?> confirmQuotes(@RequestBody Collection<Quote> quotes) throws ExecutionException, InterruptedException {
         String customer = SecurityFilter.getUser().getEmail();
@@ -401,6 +449,11 @@ public class TrainRestController {
         }
     }
 
+    /**
+     * Retrieves all bookings for the current customer.
+     * @return Collection<Booking> A collection of booking objects.
+     * @throws RuntimeException for database access issues.
+     */
     @GetMapping(path = "/getBookings")
     public Collection<Booking> getBookings(){
         String customer = SecurityFilter.getUser().getEmail();
@@ -426,6 +479,11 @@ public class TrainRestController {
         }
     }
 
+    /**
+     * Retrieves all bookings for all customers, accessible only by users with "manager" role.
+     * @return Collection<Booking> A collection of all booking objects.
+     * @throws CompletionException for parallel processing issues.
+     */
     @GetMapping(path = "/getAllBookings")
     public Collection<Booking> getAllBookings(){
         List<String> roles = List.of(SecurityFilter.getUser().getRoles());
@@ -461,6 +519,11 @@ public class TrainRestController {
         }
     }
 
+    /**
+     * Identifies the best customers based on the number of tickets purchased, accessible only by "manager" role.
+     * @return Collection<String> A collection of the best customers' identifiers.
+     * @throws CompletionException for asynchronous operation failures.
+     */
     @GetMapping(path = "/getBestCustomers")
     public Collection<String> getBestCustomer(){
         List<String> roles = List.of(SecurityFilter.getUser().getRoles());

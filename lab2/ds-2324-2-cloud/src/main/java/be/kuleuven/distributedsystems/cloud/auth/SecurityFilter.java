@@ -23,8 +23,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.annotation.Resource;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.PublicKey;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPublicKey;
 import java.util.Collection;
 import java.util.Map;
@@ -50,21 +56,25 @@ public class SecurityFilter extends OncePerRequestFilter {
 
         try{
             if(!Application.isProduction()) {
+            //if(false){
                 DecodedJWT jwt = JWT.decode(idToken);
                 email = jwt.getClaim("email").asString();
                 roles = jwt.getClaim("roles").asArray(String.class);
             }else{
                 ///read public key from google
-                Map<String, RSAPublicKey> keys =  webClientBuilder
+                Map<String, String> keys =  webClientBuilder
                         .baseUrl("https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com")
                         .build()
                         .get()
                         .retrieve()
-                        .bodyToMono(new ParameterizedTypeReference<Map<String, RSAPublicKey>>(){})
+                        .bodyToMono(new ParameterizedTypeReference<Map<String, String>>(){})
                         .block();
 
                 String kid = JWT.decode(idToken).getKeyId();
-                RSAPublicKey pubKey = keys.get(kid);
+                //System.out.println(kid);
+                X509Certificate certificate = parseCertificate(keys.get(kid));
+
+                RSAPublicKey pubKey = (RSAPublicKey) certificate.getPublicKey();
 
                 Algorithm algorithm = Algorithm.RSA256(pubKey, null);
                 DecodedJWT jwt = JWT.require(algorithm)
@@ -75,8 +85,9 @@ public class SecurityFilter extends OncePerRequestFilter {
                 roles = jwt.getClaim("roles").asArray(String.class);
             }
         } catch (JWTDecodeException s){
-            System.out.println("Couldn't decode the authorization token");
+            System.out.println("unauthorized!");
         } catch (Exception e){
+            e.printStackTrace();
             System.out.println("Something went really bad");
         }
 
@@ -85,6 +96,14 @@ public class SecurityFilter extends OncePerRequestFilter {
         context.setAuthentication(new FirebaseAuthentication(user));
 
         filterChain.doFilter(request, response);
+    }
+
+    protected X509Certificate parseCertificate(String cert) throws CertificateException {
+
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        InputStream stream = new ByteArrayInputStream(cert.getBytes());
+
+        return (X509Certificate) cf.generateCertificate(stream);
     }
 
     @Override

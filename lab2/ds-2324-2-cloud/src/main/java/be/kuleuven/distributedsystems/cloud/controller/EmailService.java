@@ -1,25 +1,27 @@
 package be.kuleuven.distributedsystems.cloud.controller;
 
+import be.kuleuven.distributedsystems.cloud.entities.Ticket;
 import com.sendgrid.*;
 import com.sendgrid.helpers.mail.Mail;
 import com.sendgrid.helpers.mail.objects.Email;
 import com.sendgrid.helpers.mail.objects.Content;
 
 import java.io.IOException;
+import java.util.List;
 
 public class EmailService {
 
     private static final String SENDGRID_API_KEY = "OUR_SENDGRID_API_KEY"; // Replace by our  SendGrid API key
     private static final String FROM_EMAIL = "our-email@example.com"; // Replace by our sender email address
 
-    public static void sendBookingConfirmation(String toEmail, boolean isSuccess) {
+    public static void sendBookingConfirmation(String toEmail, boolean isSuccess, List<Ticket> tickets) {
         Email from = new Email(FROM_EMAIL);
         Email to = new Email(toEmail);
-        Content content;
-        String subject;
 
-        if (isSuccess) {
-            content = new Content("text/plain", "Your booking was successful!");
+        String subject; Content content;
+        
+        if (isSuccess && tickets != null) {
+            content = new Content("text/plain", "Your booking was successful!\n\nTicket Information:\n" + getTicketInfo(tickets));
             subject = "Booking Confirmation";
         } else {
             content = new Content("text/plain", "Booking failed. Please try again.");
@@ -48,4 +50,13 @@ public class EmailService {
             ex.printStackTrace();
         }
     }
+
+    private static String getTicketInfo(List<Ticket> tickets) {
+        StringBuilder ticketInfo = new StringBuilder();
+        for (Ticket ticket : tickets) {
+            ticketInfo.append(ticket.toString()).append("\n");
+        }
+        return ticketInfo.toString();
+    }
+
 }

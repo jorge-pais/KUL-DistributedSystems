@@ -47,11 +47,19 @@ public class ConfirmQuotesAsync {
     private WebClient.Builder webClientBuilder;
     @Resource(name = "db")
     private Firestore db;
-
-    private final int MAX_TRIES = 25; // coded hard as fuck
-
     private final String API_KEY = Application.getApiKey();
 
+    private final int MAX_TRIES = 25;
+    private final boolean emailEnabled = false;
+
+    /**
+     * Processes incoming quotes from a Pub/Sub subscription.
+     * Decodes and deserializes the payload to extract quotes and customer information.
+     * Attempts to confirm external and internal tickets, handling errors as needed.
+     * If successful, stores the booking in Firestore and sends a confirmation email.
+     * @param payload The raw JSON payload from the Pub/Sub message.
+     * @return ResponseEntity<?> A response entity indicating the outcome of the operation.
+     */
     @PostMapping("/confirmQuoteSub")
     public ResponseEntity<?> processQuotes(@RequestBody String payload){
         // Process the pubsub message and get the payload
@@ -66,6 +74,7 @@ public class ConfirmQuotesAsync {
             customer = pubsub.getMessage().getAttributes().get("user");
         }
         catch (Exception e){
+            e.printStackTrace();
             System.out.println("[ConfirmQuotes]: Error reading/decoding pubsubmessage!");
 
             return ResponseEntity.status(500).build();
@@ -112,6 +121,7 @@ public class ConfirmQuotesAsync {
                 removeExternal(tickets);
 
                 // SEND THE BOOKING UNSUCCESSFUL EMAIL HERE!
+                sendEmail(customer, false, null);
                 return ResponseEntity.ok().build();
             }
         }
@@ -144,11 +154,13 @@ public class ConfirmQuotesAsync {
                 });
             }
             catch(Exception e){
+                e.printStackTrace();
                 System.out.println("[Confirm Quotes] Error occured while getting internal tickets! Removing!");
                 removeExternal(tickets);
                 removeInternal(tickets);
 
                 // SEND THE BOOKING UNSUCCESSFUL EMAIL HERE!
+                sendEmail(customer, false, null);
                 return ResponseEntity.ok().build();
             }
 
@@ -191,20 +203,22 @@ public class ConfirmQuotesAsync {
                 customerDocRef.set(Map.of("totalTickets", tickets.size()));
             }
         }catch(Exception e){
+            e.printStackTrace();
             throw new RuntimeException(e);
         }
 
         // Great success!
         // Send an email confirming the
-
-        //EmailService.sendBookingConfirmation(customer, true);
+        sendEmail(customer, true, tickets);
 
         return ResponseEntity.ok().build();
     }
 
-    /*These could be remote workers whose job is just to remove tickets
-    * but idk if calling web workers from other webworkers should be done
-    * or not. also they'll be making a ton of async requests*/
+    /**
+     * Attempts to remove external tickets by making DELETE requests to external services.
+     * Retries a maximum number of times defined by MAX_TRIES.
+     * @param tickets A collection of Ticket objects to be removed.
+     */
     public void removeExternal(Collection<Ticket> tickets){
         String customer;
 
@@ -236,6 +250,11 @@ public class ConfirmQuotesAsync {
         }
     }
 
+    /**
+     * Removes internal tickets by updating Firestore documents.
+     * Sets the 'available' flag to true for each seat associated with the tickets.
+     * @param tickets A collection of Ticket objects to be removed.
+     */
     public void removeInternal(Collection<Ticket> tickets){
 
         for(Ticket ticket: tickets){
@@ -254,8 +273,21 @@ public class ConfirmQuotesAsync {
         }
 
     }
+
+    /**
+     * Sends an email confirmation for the booking.
+     * The email content varies based on the success of the booking.
+     * If email functionality is disabled, logs the outcome instead.
+     * @param customer The email address of the customer.
+     * @param isSuccess A boolean indicating whether the booking was successful.
+     * @param tickets A list of Ticket objects associated with the booking (can be null).
+     */
+    public void sendEmail(String customer, boolean isSuccess, List<Ticket> tickets){
+        if(emailEnabled)
+            EmailService.sendBookingConfirmation(customer, isSuccess, tickets);
+        else {
+            String t = isSuccess ? "successful" : "unsuccessful";
+            System.out.println("An email " + t + " confirmation was (would have been) sent!");
+        }
+    }
 }
-
-
-
-
