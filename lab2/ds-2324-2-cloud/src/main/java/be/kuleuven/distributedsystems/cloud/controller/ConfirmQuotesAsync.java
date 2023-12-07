@@ -279,14 +279,14 @@ public class ConfirmQuotesAsync {
      * The email content varies based on the success of the booking.
      * If email functionality is disabled, logs the outcome instead.
      * @param customer The email address of the customer.
-     * @param isSuccess A boolean indicating whether the booking was successful.
+     * @param isSuccessful A boolean indicating whether the booking was successful.
      * @param tickets A list of Ticket objects associated with the booking (can be null).
      */
-    public void sendEmail(String customer, boolean isSuccess, List<Ticket> tickets){
+    public void sendEmail(String customer, boolean isSuccessful, List<Ticket> tickets){
         if(emailEnabled)
-            EmailService.sendBookingConfirmation(customer, isSuccess, tickets);
+            EmailService.sendBookingConfirmation(customer, isSuccessful, tickets);
         else {
-            String t = isSuccess ? "successful" : "unsuccessful";
+            String t = isSuccessful ? "successful" : "unsuccessful";
             System.out.println("An email " + t + " confirmation was (would have been) sent!");
         }
     }
