@@ -1,7 +1,12 @@
 runtime: java17
 entrypoint: java -Xmx512m -jar cloud-3.0.war
-instance_class: F2
+# Instance class F2 - frontend class, this is the second lowest in terms of CPU and memory allocation
+# F1 -> 384 MB    600 MHz
+# F2 -> 768 MB    1.2 GHz
+# F4 -> 1536 MB   2.4 GHz
+instance_class: F4
 
+# warmup requests are made to initialize a new instance before it receives traffic.
 inbound_services:
   - warmup
 
@@ -10,9 +15,10 @@ handlers:
     secure: always
     script: auto
 
+# These configure the automatic scaling behaviour
 automatic_scaling:
-  max_concurrent_requests: 50
-  min_pending_latency: 5000ms
-  max_pending_latency: 15000ms
-  target_cpu_utilization: 0.9
-  target_throughput_utilization: 0.9
+  max_concurrent_requests: 50         # Maximum number of requests each instance can handle
+  min_pending_latency: 1000ms         # Minimum time a request should wait in the queue before being served
+  max_pending_latency: 15000ms        # Maximum time a request should wait in the queue before being served.
+  target_cpu_utilization: 0.9         # Target CPU utilization
+  target_throughput_utilization: 0.9  # Target throughput utilization

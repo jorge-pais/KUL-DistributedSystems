@@ -42,6 +42,13 @@ import java.util.concurrent.TimeUnit;
 @SpringBootApplication
 public class Application {
 
+    /**
+     * The main method to start the Spring application.
+     * Sets the server port and initializes the application context.
+     * It also loads data into Firestore from a JSON resource.
+     * @param args The command line arguments.
+     * @throws IOException if an error occurs during reading the data file.
+     */
     @SuppressWarnings("unchecked")
     public static void main(String[] args) throws IOException {
         System.setProperty("server.port", System.getenv().getOrDefault("PORT", "8080"));
@@ -54,6 +61,14 @@ public class Application {
         loadLocalDBData(data);
     }
 
+    /**
+     * Loads local database data from a JSON string into Firestore.
+     * Parses the JSON data to create LocalTrain objects, then converts these to Train objects.
+     * For each LocalTrain, it stores the train, its seats, and times in Firestore.
+     * The method also counts the total number of stored seats and times, storing these counts in Firestore.
+     * @param data The JSON string representing the local train data.
+     * @throws RuntimeException for various errors including IOException, database access issues, and data processing errors.
+     */
     public static void loadLocalDBData(String data){
         Firestore db = db();
 
@@ -186,11 +201,21 @@ public class Application {
         }
     }
 
+    /**
+     * Checks if the application is running in a production environment.
+     * It determines the environment by checking the system environment variable 'GAE_ENV'.
+     * @return boolean True if running in production, false otherwise.
+     */
     @Bean
     public static boolean isProduction() {
         return Objects.equals(System.getenv("GAE_ENV"), "standard");
     }
 
+    /**
+     * Returns the project ID based on the environment.
+     * Chooses between a production and a demo project ID.
+     * @return String The project ID.
+     */
     @Bean
     public static String projectId() {
         if(isProduction())
@@ -199,6 +224,12 @@ public class Application {
         return "demo-distributed-systems-kul";
     }
 
+    /**
+     * Configures and provides a WebClient.Builder.
+     * Sets up the client with specific configurations like connector and codecs.
+     * @param configurer HypermediaWebClientConfigurer for hypermedia support.
+     * @return WebClient.Builder A configured WebClient.Builder instance.
+     */
     @Bean
     WebClient.Builder webClientBuilder(HypermediaWebClientConfigurer configurer) {
         return configurer.registerHypermediaTypes(WebClient.builder()
@@ -206,6 +237,11 @@ public class Application {
                 .codecs(clientCodecConfigurer -> clientCodecConfigurer.defaultCodecs().maxInMemorySize(100 * 1024 * 1024)));
     }
 
+    /**
+     * Configures and provides an HttpFirewall instance.
+     * Allows URL encoded slashes in URLs.
+     * @return HttpFirewall A configured HttpFirewall instance.
+     */
     @Bean
     HttpFirewall httpFirewall() {
         DefaultHttpFirewall firewall = new DefaultHttpFirewall();
@@ -213,7 +249,12 @@ public class Application {
         return firewall;
     }
 
-    ManagedChannel publisherChannel = null;
+    /**
+     * Configures and provides a Publisher instance for Pub/Sub messaging.
+     * Sets up the publisher for a specific topic based on the environment.
+     * @return Publisher The configured Publisher instance.
+     * @throws IOException if an error occurs during publisher setup.
+     */
     @Bean
     public Publisher publisher() throws IOException{
         TopicName topicName = TopicName.of(projectId(), "confirmQuotes");
@@ -260,7 +301,11 @@ public class Application {
                 .build();
     }
 
-    ManagedChannel subscriberChannel = null;
+    /**
+     * Configures and initializes a Pub/Sub subscriber.
+     * Sets up the subscriber based on the environment, with specific push configurations.
+     * @throws IOException if an error occurs during subscriber setup.
+     */
     @Bean
     public void subscriber() throws IOException{
 
@@ -315,6 +360,10 @@ public class Application {
         }
     }
 
+    /**
+     * Cleanup method called before the application is destroyed.
+     * Shuts down the ManagedChannels used by the publisher and subscriber.
+     */
     @PreDestroy
     public void preDestroy() {
         assert publisherChannel != null;
@@ -323,6 +372,9 @@ public class Application {
         shutdownManagedChannel(publisherChannel);
         shutdownManagedChannel(subscriberChannel);
     }
+
+    private ManagedChannel publisherChannel = null;
+    private ManagedChannel subscriberChannel = null;
 
     private void shutdownManagedChannel(ManagedChannel channel) {
         if (channel != null && !channel.isShutdown()) {
@@ -341,7 +393,11 @@ public class Application {
         }
     }
 
-
+    /**
+     * Provides a Firestore instance.
+     * Configures Firestore based on whether the application is in production or not.
+     * @return Firestore The Firestore service instance.
+     */
     @Bean
     public static Firestore db(){
         if(!Application.isProduction())
@@ -356,6 +412,11 @@ public class Application {
                 .build().getService();
     }
 
+    /**
+     * Retrieves the external API key from a resource file.
+     * Reads the API key from the 'API_KEY' resource file.
+     * @return String The API key, or null if an error occurs.
+     */
     public static String getApiKey() { // Hidden external API key!
         try {
             InputStream is = new ClassPathResource("API_KEY").getInputStream();
@@ -370,6 +431,11 @@ public class Application {
         }
     }
 
+    /**
+     * Returns the Sendgrid API key.
+     * Currently, the method returns a placeholder string.
+     * @return String The Sendgrid API key.
+     */
     public static String getSendgridApiKey(){
         return "API_KEY";
     }
